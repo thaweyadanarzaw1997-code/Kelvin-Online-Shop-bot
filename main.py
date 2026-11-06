@@ -72,7 +72,7 @@ async def webhook(update: TelegramUpdate):
         return {"status": "ok"}
 
     try:
-        # Dynamic System Prompt ဖြင့် Gemini Model ကို ဖန်တီးခြင်း (gemini-1.5-flash ကို သုံးသည်)
+        # gemini-1.5-flash သို့ ပြောင်းလဲအသုံးပြုထားသည်
         current_system_prompt = get_system_prompt()
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
@@ -83,7 +83,6 @@ async def webhook(update: TelegramUpdate):
         response = chat_session.send_message(user_text)
         reply_text = response.text
     except Exception as e:
-        # Error အမှန်တကယ် ဘာဖြစ်နေလဲဆိုတာ Telegram ထဲမှာ ပေါ်လာစေရန်
         reply_text = f"⚠️ Error Details: {str(e)}"
 
     send_telegram_message(chat_id, reply_text)
