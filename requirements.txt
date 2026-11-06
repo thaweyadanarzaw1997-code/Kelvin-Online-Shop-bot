@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 requests
-openai
+groq
 gspread
 oauth2client
 pydantic
