@@ -67,15 +67,16 @@ async def webhook(update: TelegramUpdate):
         
         system_content = f"သင်သည် ရေမွေးအရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ ရေမွေးစာရင်း: {json.dumps(summary_products, ensure_ascii=False)}. မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ဈေးနှုန်းနှင့်တကွ ညွှန်းဆိုပေးပါ။"
         
-        # OpenRouter API (Free Model: meta-llama/llama-3-8b-instruct:free)
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com",
             "X-Title": "Kelvin Perfume Bot"
         }
+        
+        # OpenRouter မှ ညွှန်ကြားထားသော မော်ဒယ်အသစ်သို့ ပြောင်းထားသည်
         payload = {
-            "model": "meta-llama/llama-3-8b-instruct:free",
+            "model": "meta-llama/llama-3.1-8b-instruct",
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
