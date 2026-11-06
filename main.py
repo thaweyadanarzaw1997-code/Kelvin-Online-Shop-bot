@@ -72,10 +72,10 @@ async def webhook(update: TelegramUpdate):
         return {"status": "ok"}
 
     try:
-        # gemini-1.5-flash သို့ ပြောင်းလဲအသုံးပြုထားသည်
+        # Model name ကို gemini-2.5-flash သို့ ပြောင်းထားပါသည်
         current_system_prompt = get_system_prompt()
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-2.5-flash",
             system_instruction=current_system_prompt
         )
         
