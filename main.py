@@ -10,14 +10,16 @@ from groq import Groq
 
 app = FastAPI()
 
+# Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 
 client = Groq(api_key=GROQ_API_KEY)
 
+# Global Cache for Sheet Data
 PRODUCTS_CACHE = []
 LAST_FETCH_TIME = 0
-CACHE_DURATION = 3600
+CACHE_DURATION = 3600  # 1 hour
 
 def get_google_sheet_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -27,8 +29,10 @@ def get_google_sheet_data():
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     else:
         creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
+        
     client_gs = gspread.authorize(creds)
-    return client_gs.open("Fragrance by Kelvin")
+    sheet = client_gs.open("Fragrance by Kelvin")
+    return sheet
 
 def load_products_cached():
     global PRODUCTS_CACHE, LAST_FETCH_TIME
@@ -57,33 +61,44 @@ async def webhook(update: TelegramUpdate):
     user_text = update.message["text"]
     
     if user_text == "/start":
-        send_telegram_message(chat_id, "မင်္ဂလာပါရှင်! Kelvin Fragrance Bot မှ ကြိုဆိုပါတယ်။")
+        send_telegram_message(
+            chat_id, 
+            "မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\nဘယ်လိုရနံ့မျိုးကို နှစ်သက်လဲ၊ ဘယ်လိုနေရာတွေမှာ သုံးမလဲ ပြောပြပေးပါနော်။"
+        )
         return {"status": "ok"}
 
     try:
         products = load_products_cached()
-        system_prompt = f"သင်သည် ရေမွေးအရောင်းစာရေးဖြစ်သည်. စာရင်း: {json.dumps(products, ensure_ascii=False)}"
+        system_content = f"သင်သည် Kelvin Fragrance Online Shop ၏ AI ရေမွေး အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ ရေမွေးစာရင်း: {json.dumps(products, ensure_ascii=False)}. Customer များအား မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ဈေးနှုန်းနှင့်တကွ ညွှန်းဆိုပေးပါ။"
         
+        # Groq API Request ပို့ခြင်း (အမှန်ကန်ဆုံး Format)
         response = client.chat.completions.create(
             model="llama3-70b-8192",
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
             ],
-            temperature=0.7
+            temperature=0.7,
+            max_tokens=1024
         )
+        
         reply_text = response.choices[0].message.content
     except Exception as e:
-        # Error တက်ရင် ဘာ Error လဲဆိုတာ Telegram မှာ ပို့ပေးမယ်
-        reply_text = f"⚠️ Server Error: {str(e)}"
+        # 400 Bad Request သို့မဟုတ် အခြား Error တက်လာလျှင် အတိအကျ သိရရန်
+        reply_text = f"⚠️ Groq Error: {str(e)}"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
 
 def send_telegram_message(chat_id: int, text: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+    requests.post(url, json=payload)
 
 @app.get("/")
 async def root():
-    return {"status": "Running"}
+    return {"status": "Telegram Bot is running smoothly!"}
