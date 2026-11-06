@@ -78,9 +78,9 @@ async def webhook(update: TelegramUpdate):
     try:
         system_prompt = get_system_prompt()
         
-        # Groq API (Llama 3 Model) ဖြင့် ဖြေကြားခြင်း
+        # Model နာမည်ကို llama-3.1-70b-versatile သို့ ပြောင်းထားသည်
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_text}
