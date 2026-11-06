@@ -16,7 +16,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 
 client = Groq(api_key=GROQ_API_KEY)
 
-# Global Cache for Sheet Data (To avoid Vercel Timeouts)
+# Global Cache for Sheet Data
 PRODUCTS_CACHE = []
 LAST_FETCH_TIME = 0
 CACHE_DURATION = 3600  # 1 hour cache
@@ -38,7 +38,6 @@ def load_products_cached():
     global PRODUCTS_CACHE, LAST_FETCH_TIME
     current_time = time.time()
     
-    # Cache သက်တမ်းမကုန်သေးရင် Cache ထဲက Data ကိုပဲ အမြန် သုံးမည်
     if PRODUCTS_CACHE and (current_time - LAST_FETCH_TIME < CACHE_DURATION):
         return PRODUCTS_CACHE
 
@@ -50,7 +49,7 @@ def load_products_cached():
         return PRODUCTS_CACHE
     except Exception as e:
         print(f"Error loading sheet: {e}")
-        return PRODUCTS_CACHE  # Error ဖြစ်ခဲ့ရင် ယခင် ရှိပြီးသား Cache အသုံးပြုမည်
+        return PRODUCTS_CACHE
 
 def get_system_prompt():
     products = load_products_cached()
@@ -60,7 +59,7 @@ def get_system_prompt():
 {json.dumps(products, ensure_ascii=False, indent=2)}
 
 စည်းမျဉ်းများ -
-1. Customer များက ရေမွေးအကြောင်း မေးမြန်းလျှင်၊ အကြံဥာဏ်တောင်းလျှင် အထက်ပါ Google Sheet စာရင်းထဲမှ သင့်လျော်သော ရေမွေးများကို ဈေးနှုန်းနှင့် ဖော်ပြပေးပါ။
+1. Customer များက ရေမွေးအကြောင်း မေးမြန်းလျှင်၊ အကြံဉာဏ်တောင်းလျှင် အထက်ပါ Google Sheet စာရင်းထဲမှ သင့်လျော်သော ရေမွေးများကို ဈေးနှုန်းနှင့် ဖော်ပြပေးပါ။
 2. စာရင်းထဲတွင် မရှိသော အကြောင်းအရာများ သို့မဟုတ် အထွေထွေ ဗဟုသုတ၊ ရေမွေးသမိုင်းကြောင်းများကို မေးလျှင်လည်း ကိုယ်ပိုင်ဗဟုသုတဖြင့် ချိုသာယဉ်ကျေးစွာ ဖြေကြားပေးပါ။
 3. Customer က ဈေးဝယ်လိုကြောင်း (Order တင်လိုကြောင်း) ပြောလာပါက အမည်၊ ဖုန်းနံပါတ်၊ လိပ်စာ နှင့် လိုချင်သည့် ရေမွေးအမျိုးအစား/ပမာဏတို့ကို အဆင့်ဆင့် မေးမြန်းပါ။
 4. အမြဲတမ်း မြန်မာဘာသာဖြင့် ဖော်ရွေပျူငှာစွာ ဖြေကြားပါ။
@@ -90,9 +89,9 @@ async def webhook(update: TelegramUpdate):
     try:
         system_prompt = get_system_prompt()
         
-        # Fast & Stable Groq Model (llama-3.1-8b-instant)
+        # Model နာမည်ကို llama3-70b-8192 သို့ ပြောင်းလဲထားသည်
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama3-70b-8192",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_text}
