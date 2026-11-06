@@ -5,15 +5,15 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from openai import OpenAI
+from groq import Groq
 
 app = FastAPI()
 
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY_HERE")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = Groq(api_key=GROQ_API_KEY)
 
 # Google Sheets Setup
 def get_google_sheet_data():
@@ -39,7 +39,7 @@ def load_products_from_sheet():
         print(f"Error loading sheet: {e}")
         return []
 
-# System Prompt for OpenAI ChatGPT
+# System Prompt for Groq AI
 def get_system_prompt():
     products = load_products_from_sheet()
     return f"""
@@ -78,9 +78,9 @@ async def webhook(update: TelegramUpdate):
     try:
         system_prompt = get_system_prompt()
         
-        # OpenAI GPT-4o-mini ဖြင့် ဖြေကြားခြင်း
+        # Groq API (Llama 3 Model) ဖြင့် ဖြေကြားခြင်း
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_text}
@@ -105,4 +105,4 @@ def send_telegram_message(chat_id: int, text: str):
 
 @app.get("/")
 async def root():
-    return {"status": "Telegram Bot with OpenAI is running smoothly!"}
+    return {"status": "Telegram Bot with Groq AI is running smoothly!"}
