@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+google-generativeai
+gspread
+oauth2client
+pydantic
+pandas
