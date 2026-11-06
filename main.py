@@ -37,9 +37,8 @@ def load_products_cached():
     try:
         sheet = get_google_sheet_data()
         worksheet = sheet.worksheet("Sheet1")
-        # အရမ်းရှည်မသွားအောင် ပထမဆုံး ရေမွေးအချို့ကိုပဲ ယူမည်
         data = worksheet.get_all_records()
-        PRODUCTS_CACHE = data[:50] # ပထမအလုံး ၅၀ ကိုပဲ သုံးမည် (400 Bad Request မတက်အောင်)
+        PRODUCTS_CACHE = data[:50]
         LAST_FETCH_TIME = time.time()
         return PRODUCTS_CACHE
     except Exception as e:
@@ -67,13 +66,13 @@ async def webhook(update: TelegramUpdate):
 
     try:
         products = load_products_cached()
-        # ဒေတာ အရမ်းမကြီးစေရန် နာမည်၊ အမျိုးအစားနှင့် ဈေးနှုန်းများကိုသာ အတိုချုပ်ပေးပို့မည်
         summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products]
         
         system_content = f"သင်သည် ရေမွေးအရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ ရေမွေးစာရင်း: {json.dumps(summary_products, ensure_ascii=False)}. မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ဈေးနှုန်းနှင့်တကွ ညွှန်းဆိုပေးပါ။"
         
+        # Model နာမည်ကို llama3-8b-8192 သို့ ပြောင်းထားသည်
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # အမြန်ဆုံးနှင့် Error အကင်းဆုံး Model သို့ ပြောင်းထားသည်
+            model="llama3-8b-8192",
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
