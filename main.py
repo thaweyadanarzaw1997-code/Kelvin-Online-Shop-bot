@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import requests
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
@@ -15,7 +16,11 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 
 client = Groq(api_key=GROQ_API_KEY)
 
-# Google Sheets Setup
+# Global Cache for Sheet Data (To avoid Vercel Timeouts)
+PRODUCTS_CACHE = []
+LAST_FETCH_TIME = 0
+CACHE_DURATION = 3600  # 1 hour cache
+
 def get_google_sheet_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
@@ -29,26 +34,33 @@ def get_google_sheet_data():
     sheet = client_gs.open("Fragrance by Kelvin")
     return sheet
 
-def load_products_from_sheet():
+def load_products_cached():
+    global PRODUCTS_CACHE, LAST_FETCH_TIME
+    current_time = time.time()
+    
+    # Cache သက်တမ်းမကုန်သေးရင် Cache ထဲက Data ကိုပဲ အမြန် သုံးမည်
+    if PRODUCTS_CACHE and (current_time - LAST_FETCH_TIME < CACHE_DURATION):
+        return PRODUCTS_CACHE
+
     try:
         sheet = get_google_sheet_data()
         worksheet = sheet.worksheet("Sheet1")
-        data = worksheet.get_all_records()
-        return data
+        PRODUCTS_CACHE = worksheet.get_all_records()
+        LAST_FETCH_TIME = current_time
+        return PRODUCTS_CACHE
     except Exception as e:
         print(f"Error loading sheet: {e}")
-        return []
+        return PRODUCTS_CACHE  # Error ဖြစ်ခဲ့ရင် ယခင် ရှိပြီးသား Cache အသုံးပြုမည်
 
-# System Prompt for Groq AI
 def get_system_prompt():
-    products = load_products_from_sheet()
+    products = load_products_cached()
     return f"""
 သင်သည် Kelvin Fragrance Online Shop ၏ အသိဉာဏ်ထက်မြက်သော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ (AI Sales Consultant) ဖြစ်သည်။
 ကျွန်ုပ်တို့၏ Google Sheet ထဲတွင် ရှိနေသော လက်ရှိ ရေမွေးစာရင်းများမှာ အောက်ပါအတိုင်း ဖြစ်သည်:
 {json.dumps(products, ensure_ascii=False, indent=2)}
 
 စည်းမျဉ်းများ -
-1. Customer များက ရေမွေးအကြောင်း မေးမြန်းလျှင်၊ အကြံဉာဏ်တောင်းလျှင် အထက်ပါ Google Sheet စာရင်းထဲမှ သင့်လျော်သော ရေမွေးများကို ဈေးနှုန်းနှင့် ဖော်ပြပေးပါ။
+1. Customer များက ရေမွေးအကြောင်း မေးမြန်းလျှင်၊ အကြံဥာဏ်တောင်းလျှင် အထက်ပါ Google Sheet စာရင်းထဲမှ သင့်လျော်သော ရေမွေးများကို ဈေးနှုန်းနှင့် ဖော်ပြပေးပါ။
 2. စာရင်းထဲတွင် မရှိသော အကြောင်းအရာများ သို့မဟုတ် အထွေထွေ ဗဟုသုတ၊ ရေမွေးသမိုင်းကြောင်းများကို မေးလျှင်လည်း ကိုယ်ပိုင်ဗဟုသုတဖြင့် ချိုသာယဉ်ကျေးစွာ ဖြေကြားပေးပါ။
 3. Customer က ဈေးဝယ်လိုကြောင်း (Order တင်လိုကြောင်း) ပြောလာပါက အမည်၊ ဖုန်းနံပါတ်၊ လိပ်စာ နှင့် လိုချင်သည့် ရေမွေးအမျိုးအစား/ပမာဏတို့ကို အဆင့်ဆင့် မေးမြန်းပါ။
 4. အမြဲတမ်း မြန်မာဘာသာဖြင့် ဖော်ရွေပျူငှာစွာ ဖြေကြားပါ။
@@ -78,9 +90,9 @@ async def webhook(update: TelegramUpdate):
     try:
         system_prompt = get_system_prompt()
         
-        # Model နာမည်ကို llama-3.1-70b-versatile သို့ ပြောင်းထားသည်
+        # Fast & Stable Groq Model (llama-3.1-8b-instant)
         response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_text}
@@ -105,4 +117,4 @@ def send_telegram_message(chat_id: int, text: str):
 
 @app.get("/")
 async def root():
-    return {"status": "Telegram Bot with Groq AI is running smoothly!"}
+    return {"status": "Telegram Bot is running smoothly!"}
