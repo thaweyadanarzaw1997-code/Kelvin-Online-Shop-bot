@@ -10,16 +10,14 @@ from groq import Groq
 
 app = FastAPI()
 
-# Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 
 client = Groq(api_key=GROQ_API_KEY)
 
-# Global Cache for Sheet Data
 PRODUCTS_CACHE = []
 LAST_FETCH_TIME = 0
-CACHE_DURATION = 3600  # 1 hour cache
+CACHE_DURATION = 3600
 
 def get_google_sheet_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -29,41 +27,22 @@ def get_google_sheet_data():
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     else:
         creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
-        
     client_gs = gspread.authorize(creds)
-    sheet = client_gs.open("Fragrance by Kelvin")
-    return sheet
+    return client_gs.open("Fragrance by Kelvin")
 
 def load_products_cached():
     global PRODUCTS_CACHE, LAST_FETCH_TIME
-    current_time = time.time()
-    
-    if PRODUCTS_CACHE and (current_time - LAST_FETCH_TIME < CACHE_DURATION):
+    if PRODUCTS_CACHE and (time.time() - LAST_FETCH_TIME < CACHE_DURATION):
         return PRODUCTS_CACHE
-
     try:
         sheet = get_google_sheet_data()
         worksheet = sheet.worksheet("Sheet1")
         PRODUCTS_CACHE = worksheet.get_all_records()
-        LAST_FETCH_TIME = current_time
+        LAST_FETCH_TIME = time.time()
         return PRODUCTS_CACHE
     except Exception as e:
-        print(f"Error loading sheet: {e}")
+        print(f"Sheet Error: {e}")
         return PRODUCTS_CACHE
-
-def get_system_prompt():
-    products = load_products_cached()
-    return f"""
-သင်သည် Kelvin Fragrance Online Shop ၏ အသိဉာဏ်ထက်မြက်သော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ (AI Sales Consultant) ဖြစ်သည်။
-ကျွန်ုပ်တို့၏ Google Sheet ထဲတွင် ရှိနေသော လက်ရှိ ရေမွေးစာရင်းများမှာ အောက်ပါအတိုင်း ဖြစ်သည်:
-{json.dumps(products, ensure_ascii=False, indent=2)}
-
-စည်းမျဉ်းများ -
-1. Customer များက ရေမွေးအကြောင်း မေးမြန်းလျှင်၊ အကြံဉာဏ်တောင်းလျှင် အထက်ပါ Google Sheet စာရင်းထဲမှ သင့်လျော်သော ရေမွေးများကို ဈေးနှုန်းနှင့် ဖော်ပြပေးပါ။
-2. စာရင်းထဲတွင် မရှိသော အကြောင်းအရာများ သို့မဟုတ် အထွေထွေ ဗဟုသုတ၊ ရေမွေးသမိုင်းကြောင်းများကို မေးလျှင်လည်း ကိုယ်ပိုင်ဗဟုသုတဖြင့် ချိုသာယဉ်ကျေးစွာ ဖြေကြားပေးပါ။
-3. Customer က ဈေးဝယ်လိုကြောင်း (Order တင်လိုကြောင်း) ပြောလာပါက အမည်၊ ဖုန်းနံပါတ်၊ လိပ်စာ နှင့် လိုချင်သည့် ရေမွေးအမျိုးအစား/ပမာဏတို့ကို အဆင့်ဆင့် မေးမြန်းပါ။
-4. အမြဲတမ်း မြန်မာဘာသာဖြင့် ဖော်ရွေပျူငှာစွာ ဖြေကြားပါ။
-"""
 
 class TelegramUpdate(BaseModel):
     update_id: int
@@ -78,18 +57,13 @@ async def webhook(update: TelegramUpdate):
     user_text = update.message["text"]
     
     if user_text == "/start":
-        welcome_message = (
-            "မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
-            "ကျွန်ုပ်တို့ ဆီမှာ ရရှိနိုင်တဲ့ မွှေးပျံ့တဲ့ ရေမွေးအမျိုးမျိုးကို စိတ်ကြိုက်မေးမြန်းနိုင်ပါတယ်။ "
-            "ဘယ်လိုရနံ့မျိုးကို နှစ်သက်လဲ၊ ဘယ်လိုနေရာတွေမှာ သုံးမလဲ ပြောပြပေးပါနော်။"
-        )
-        send_telegram_message(chat_id, welcome_message)
+        send_telegram_message(chat_id, "မင်္ဂလာပါရှင်! Kelvin Fragrance Bot မှ ကြိုဆိုပါတယ်။")
         return {"status": "ok"}
 
     try:
-        system_prompt = get_system_prompt()
+        products = load_products_cached()
+        system_prompt = f"သင်သည် ရေမွေးအရောင်းစာရေးဖြစ်သည်. စာရင်း: {json.dumps(products, ensure_ascii=False)}"
         
-        # Model နာမည်ကို llama3-70b-8192 သို့ ပြောင်းလဲထားသည်
         response = client.chat.completions.create(
             model="llama3-70b-8192",
             messages=[
@@ -100,20 +74,16 @@ async def webhook(update: TelegramUpdate):
         )
         reply_text = response.choices[0].message.content
     except Exception as e:
-        reply_text = f"⚠️ Error Details: {str(e)}"
+        # Error တက်ရင် ဘာ Error လဲဆိုတာ Telegram မှာ ပို့ပေးမယ်
+        reply_text = f"⚠️ Server Error: {str(e)}"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
 
 def send_telegram_message(chat_id: int, text: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown"
-    }
-    requests.post(url, json=payload)
+    requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
 
 @app.get("/")
 async def root():
-    return {"status": "Telegram Bot is running smoothly!"}
+    return {"status": "Running"}
