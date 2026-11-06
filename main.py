@@ -65,7 +65,15 @@ async def webhook(update: TelegramUpdate):
         products = load_products_cached()
         summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products]
         
-        system_content = f"သင်သည် ရေမွေးအရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ ရေမွေးစာရင်း: {json.dumps(summary_products, ensure_ascii=False)}. မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ဈေးနှုန်းနှင့်တကွ ညွှန်းဆိုပေးပါ။"
+        # မြန်မာစာ သဒ္ဒါမှန်ကန်စေရန် တင်းကျပ်သော System Prompt
+        system_content = (
+            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေကျွမ်းကျင်သော ရေမွေးအရောင်းကိုယ်စားလှယ် ဖြစ်သည်။ "
+            "အောက်ပါ ရေမွေးစာရင်းများကို အခြေခံ၍ Customer များကို မြန်မာဘာသာဖြင့် ဖြေကြားပေးပါ။ "
+            "စည်းမျဉ်းများ- "
+            "1. မြန်မာစာ သတ်ပုံ၊ သဒ္ဒါ နှင့် သာမန်ပြောစကားများကို အလွန်သန့်ရှင်းမှန်ကန်စွာ ရေးသားပါ။ စာလုံးထပ်ခြင်း၊ ရေးထုံးမှားယွင်းခြင်း လုံးဝ မရှိစေရပါ။ "
+            "2. ဈေးနှုန်းနှင့် ရေမွေးအမည်များကို ရှင်းလင်းပြတ်သားစွာ ဖော်ပြပါ။ "
+            "ရေမွေးစာရင်း: " + json.dumps(summary_products, ensure_ascii=False)
+        )
         
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -74,14 +82,14 @@ async def webhook(update: TelegramUpdate):
             "X-Title": "Kelvin Perfume Bot"
         }
         
-        # OpenRouter မှ ညွှန်ကြားထားသော မော်ဒယ်အသစ်သို့ ပြောင်းထားသည်
+        # မြန်မာဘာသာ သဘာဝကျကျနှင့် ပိုမိုကောင်းမွန်သော Free Model သို့ ပြောင်းထားသည်
         payload = {
-            "model": "meta-llama/llama-3.1-8b-instruct",
+            "model": "deepseek/deepseek-chat",
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
             ],
-            "temperature": 0.7,
+            "temperature": 0.5,
             "max_tokens": 512
         }
         
@@ -96,7 +104,7 @@ async def webhook(update: TelegramUpdate):
         if response.status_code == 200 and "choices" in res_data:
             reply_text = res_data["choices"][0]["message"]["content"]
         else:
-            reply_text = f"⚠️ OpenRouter Error ({response.status_code}): {str(res_data)}"
+            reply_text = f"⚠️ API Error ({response.status_code}): {str(res_data)}"
             
     except Exception as e:
         reply_text = f"⚠️ Server Error: {str(e)}"
