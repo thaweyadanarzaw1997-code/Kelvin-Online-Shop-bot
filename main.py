@@ -3,17 +3,17 @@ import json
 import requests
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-import google.generativeai as genai
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from openai import OpenAI
 
 app = FastAPI()
 
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY_HERE")
 
-genai.configure(api_key=GEMINI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Google Sheets Setup
 def get_google_sheet_data():
@@ -25,17 +25,21 @@ def get_google_sheet_data():
     else:
         creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
         
-    client = gspread.authorize(creds)
-    sheet = client.open("Fragrance by Kelvin")
+    client_gs = gspread.authorize(creds)
+    sheet = client_gs.open("Fragrance by Kelvin")
     return sheet
 
 def load_products_from_sheet():
-    sheet = get_google_sheet_data()
-    worksheet = sheet.worksheet("Sheet1")
-    data = worksheet.get_all_records()
-    return data
+    try:
+        sheet = get_google_sheet_data()
+        worksheet = sheet.worksheet("Sheet1")
+        data = worksheet.get_all_records()
+        return data
+    except Exception as e:
+        print(f"Error loading sheet: {e}")
+        return []
 
-# System Prompt for Gemini AI
+# System Prompt for OpenAI ChatGPT
 def get_system_prompt():
     products = load_products_from_sheet()
     return f"""
@@ -72,16 +76,18 @@ async def webhook(update: TelegramUpdate):
         return {"status": "ok"}
 
     try:
-        # Model name ကို gemini-2.5-flash သို့ ပြောင်းထားပါသည်
-        current_system_prompt = get_system_prompt()
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=current_system_prompt
-        )
+        system_prompt = get_system_prompt()
         
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message(user_text)
-        reply_text = response.text
+        # OpenAI GPT-4o-mini ဖြင့် ဖြေကြားခြင်း
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text}
+            ],
+            temperature=0.7
+        )
+        reply_text = response.choices[0].message.content
     except Exception as e:
         reply_text = f"⚠️ Error Details: {str(e)}"
 
@@ -99,4 +105,4 @@ def send_telegram_message(chat_id: int, text: str):
 
 @app.get("/")
 async def root():
-    return {"status": "Telegram Bot is running smoothly!"}
+    return {"status": "Telegram Bot with OpenAI is running smoothly!"}
