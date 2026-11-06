@@ -6,14 +6,11 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from groq import Groq
 
 app = FastAPI()
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
-
-client = Groq(api_key=GROQ_API_KEY)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 PRODUCTS_CACHE = []
 LAST_FETCH_TIME = 0
@@ -38,7 +35,7 @@ def load_products_cached():
         sheet = get_google_sheet_data()
         worksheet = sheet.worksheet("Sheet1")
         data = worksheet.get_all_records()
-        PRODUCTS_CACHE = data[:50]
+        PRODUCTS_CACHE = data[:30]  # ဒေတာ အလွန်မကြီးစေရန်
         LAST_FETCH_TIME = time.time()
         return PRODUCTS_CACHE
     except Exception as e:
@@ -70,20 +67,36 @@ async def webhook(update: TelegramUpdate):
         
         system_content = f"သင်သည် ရေမွေးအရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ ရေမွေးစာရင်း: {json.dumps(summary_products, ensure_ascii=False)}. မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ဈေးနှုန်းနှင့်တကွ ညွှန်းဆိုပေးပါ။"
         
-        # Model နာမည်ကို llama3-8b-8192 သို့ ပြောင်းထားသည်
-        response = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[
+        # Groq API သို့ Direct HTTP POST ဖြင့် ချိတ်ဆက်ခြင်း (SDK Error လုံးဝကင်းဝေးစေရန်)
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
             ],
-            temperature=0.7,
-            max_tokens=512
+            "temperature": 0.7,
+            "max_tokens": 512
+        }
+        
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=10
         )
         
-        reply_text = response.choices[0].message.content
+        res_data = response.json()
+        if response.status_code == 200:
+            reply_text = res_data["choices"][0]["message"]["content"]
+        else:
+            reply_text = f"⚠️ Groq API Error ({response.status_code}): {str(res_data)}"
+            
     except Exception as e:
-        reply_text = f"⚠️ Groq Error: {str(e)}"
+        reply_text = f"⚠️ Server Error: {str(e)}"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
