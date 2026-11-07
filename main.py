@@ -172,7 +172,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက **ငွေလွှဲ Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # AI စကားပြောခြင်း (DeepSeek R1 Free Model သုံးထားသည်)
+    # AI စကားပြောခြင်း (Qwen 2.5 7B Instruct Free Model - ပိုမိုမြန်ဆန်ပြီး တည်ငြိမ်သည်)
     try:
         products = load_products_cached()
         summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:40]]
@@ -194,7 +194,7 @@ async def webhook(update: TelegramUpdate):
         }
         
         payload = {
-            "model": "deepseek/deepseek-r1:free",
+            "model": "qwen/qwen-2.5-7b-instruct:free",
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
@@ -207,18 +207,17 @@ async def webhook(update: TelegramUpdate):
             "https://openrouter.ai/api/v1/chat/completions",
             headers=headers,
             json=payload,
-            timeout=15
+            timeout=20
         )
         
         res_data = response.json()
         if response.status_code == 200 and "choices" in res_data:
             reply_text = res_data["choices"][0]["message"]["content"]
         else:
-            # API Error တက်ခဲ့လျှင် Bot လုံးဝ မရပ်သွားဘဲ အဆင်ပြေမည့် စာသားပေးပို့မည်
-            reply_text = f"မင်္ဂလာပါရှင့်! 🙏 လိုချင်တဲ့ ရနံ့လေးတွေကို မေးမြန်းနိုင်ပါတယ်။ ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} မှာ ဝင်ကြည့်နိုင်ပါတယ်ရှင့်။ Order တင်ချင်ရင် 'Order တင်မည်' လို့ ရိုက်ပို့ပေးပါနော်။"
+            reply_text = f"⚠️ AI Error ({response.status_code}): {str(res_data)}"
             
     except Exception as e:
-        reply_text = f"မင်္ဂလာပါရှင့်! 🙏 လိုချင်တဲ့ ရနံ့လေးတွေကို မေးမြန်းနိုင်ပါတယ်။ ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} မှာ ဝင်ကြည့်နိုင်ပါတယ်ရှင့်။ Order တင်ချင်ရင် 'Order တင်မည်' လို့ ရိုက်ပို့ပေးပါနော်။"
+        reply_text = f"⚠️ Server Exception: {str(e)}"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
