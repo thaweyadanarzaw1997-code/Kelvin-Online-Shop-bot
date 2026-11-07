@@ -120,7 +120,8 @@ async def webhook(update: TelegramUpdate):
             f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
             f"လိုချင်သော ရေမွေးနံ့ သို့မဟုတ် အမျိုးအစားများကို မေးမြန်းနိုင်ပါတယ်။\n"
             f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
-            f"🔗 {WEBSITE_LINK}"
+            f"🔗 {WEBSITE_LINK}\n\n"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
         )
         return {"status": "ok"}
 
@@ -172,10 +173,10 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက **ငွေလွှဲ Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # AI စကားပြောခြင်း (Qwen 2.5 7B Instruct Free Model - ပိုမိုမြန်ဆန်ပြီး တည်ငြိမ်သည်)
+    # AI စကားပြောခြင်း (OpenRouter Free Model: deepseek/deepseek-r1:free)
     try:
         products = load_products_cached()
-        summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:40]]
+        summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:50]]
         
         system_content = (
             "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ "
@@ -194,7 +195,7 @@ async def webhook(update: TelegramUpdate):
         }
         
         payload = {
-            "model": "qwen/qwen-2.5-7b-instruct:free",
+            "model": "deepseek/deepseek-r1:free",
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
@@ -207,17 +208,25 @@ async def webhook(update: TelegramUpdate):
             "https://openrouter.ai/api/v1/chat/completions",
             headers=headers,
             json=payload,
-            timeout=20
+            timeout=25
         )
         
         res_data = response.json()
         if response.status_code == 200 and "choices" in res_data:
             reply_text = res_data["choices"][0]["message"]["content"]
         else:
-            reply_text = f"⚠️ AI Error ({response.status_code}): {str(res_data)}"
+            reply_text = (
+                f"မင်္ဂလာပါရှင့်! 🙏 လိုချင်တဲ့ ရနံ့လေးတွေကို မေးမြန်းနိုင်ပါတယ်။ "
+                f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} မှာ ဝင်ကြည့်နိုင်ပါတယ်ရှင့်။ "
+                f"Order တင်ချင်ရင် 'Order တင်မည်' လို့ ရိုက်ပို့ပေးပါနော်။"
+            )
             
     except Exception as e:
-        reply_text = f"⚠️ Server Exception: {str(e)}"
+        reply_text = (
+            f"မင်္ဂလာပါရှင့်! 🙏 လိုချင်တဲ့ ရနံ့လေးတွေကို မေးမြန်းနိုင်ပါတယ်။ "
+            f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} မှာ ဝင်ကြည့်နိုင်ပါတယ်ရှင့်။ "
+            f"Order တင်ချင်ရင် 'Order တင်မည်' လို့ ရိုက်ပို့ပေးပါနော်။"
+        )
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
