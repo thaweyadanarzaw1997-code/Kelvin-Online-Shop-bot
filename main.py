@@ -121,7 +121,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(
             chat_id, 
             f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
-            f"🔍 လိုချင်သော ရေမွေးအမည် (ဥပမာ - hawas, sauvage) ကို ရိုက်ထည့်ပြီး မေးမြန်းနိုင်ပါတယ်။\n"
+            f"🔍 လိုချင်သော ရေမွေးအကြောင်း သို့မဟုတ် အနံ့အသက်များကို မေးမြန်းနိုင်ပါတယ်။\n"
             f"🌐 ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"{WEBSITE_LINK}\n\n"
             f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
@@ -176,92 +176,47 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက ငွေလွှဲ **Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # နှုတ်ဆက်ခြင်းများနှင့် အထွေထွေစကားများအတွက်
-    text_lower = user_text.lower()
-    if any(word in text_lower for word in ["hi", "hello", "ဟိုင်", "ဟယ်လို", "မင်္ဂလာပါ", "hey", "စကားပြော"]):
-        reply_text = (
-            f"မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
-            f"🔍 သိလိုသည့် ရေမွေးအမည်ကို ရိုက်ထည့်ပြီး မေးမြန်းနိုင်ပါတယ်ရှင့်။\n"
-            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} ကို ဝင်ကြည့်နိုင်ပါတယ်။\n\n"
-            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
-        )
-        send_telegram_message(chat_id, reply_text)
-        return {"status": "ok"}
-
-    if any(word in text_lower for word in ["website", "web", "လင့်", "link", "ကြည့်မယ်", "အစုံ", "page"]):
-        reply_text = (
-            f"🌐 **Kelvin Fragrance Website**\n\n"
-            f"ရေမွေးအမျိုးအစားစုံလင်စွာကို အောက်ပါလင့်ခ်တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
-            f"{WEBSITE_LINK}\n\n"
-            f"အသေးစိတ် သိလိုပါက သို့မဟုတ် Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့နိုင်ပါတယ်။"
-        )
-        send_telegram_message(chat_id, reply_text)
-        return {"status": "ok"}
-
-    # Smart Filtering: Google Sheet ထဲမှ Customer ရှာသော စာသားနှင့် ကိုက်ညီသည့် ရေမွေးများကိုသာ ရှထုတ်မည်
+    # Gemini AI ဖြင့် Customer ၏ မေးခွန်းများကို ဖြေကြားခြင်း (Sheet Data Filter ပါဝင်သည်)
     try:
         products = load_products_cached()
-        matched_products = []
-        
-        # Customer ရိုက်လိုက်တဲ့ စာသားထဲက စကားလုံးများကို ခွဲထုတ်မည် (ဥပမာ - hawas ဆိုရင် hawas ကို ရှာမည်)
+        matched_summary = []
+        text_lower = user_text.lower()
         keywords = text_lower.split()
         
         for p in products:
             prod_name = str(p.get("Product Name") or p.get("Name") or p.get("product") or "").lower()
-            if prod_name:
-                # keywords ထဲက တစ်လုံးချင်းစီ ပါဝင်မှုရှိမရှိ စစ်ဆေးမည်
-                if any(kw in prod_name for kw in keywords):
-                    matched_products.append(p)
-                    
-        if matched_products:
-            # တွေ့ရှိသော ရေမွေးစာရင်းအကျဉ်းကို ပြင်ဆင်မည်
-            matched_summary = []
-            for p in matched_products[:8]: # အများဆုံး ၈ ခု
+            if prod_name and any(kw in prod_name for kw in keywords):
                 name = p.get("Product Name") or p.get("Name") or p.get("product") or "Unknown"
                 p5 = p.get("5ml Price") or p.get("5ml") or "-"
                 p10 = p.get("10ml Price") or p.get("10ml") or "-"
                 matched_summary.append(f"- {name} (5ml: {p5}, 10ml: {p10})")
                 
-            products_text = "\n".join(matched_summary)
-            
-            # Gemini AI သို့ ဤတွေ့ရှိသော ရေမွေးစာရင်းအကျဉ်းကိုသာ ပို့ပေးမည် (Read Timeout လုံးဝမဖြစ်ပါ)
-            ai_prompt = (
-                "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော ရေမွေးဆိုင် အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ "
-                "Customer က ရေမွေးအကြောင်း မေးမြန်းထားသည်။ အောက်ပါ Sheet ထဲက တွေ့ရှိထားသော ရေမွေးအချက်အလက်များကို အခြေခံ၍ "
-                "Customer ၏ မေးခွန်းကို မြန်မာဘာသာဖြင့် ဖော်ရွေကျွမ်းကျင်စွာ ရှင်းပြပါ။ "
-                f"ရေမွေးအကုန်ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ကြည့်နိုင်ကြောင်း ထည့်ပြောပါ။ Markdown syntax (*, _, etc.) ကို လုံးဝမသုံးပါနဲ့။\n\n"
-                f"တွေ့ရှိရသော ရေမွေးများ:\n{products_text}\n\n"
-                f"Customer ၏ မေးခွန်း: {user_text}"
-            )
-            
-            gemini_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-            payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
-            
-            response = requests.post(gemini_url, json=payload, timeout=12)
-            res_data = response.json()
-            
-            if response.status_code == 200 and "candidates" in res_data:
-                reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                # AI ဘက်က တုံ့ပြန်မှုမရှိပါက တွေ့ထားသော ရေမွေးစာရင်းကို တိုက်ရိုက်ပြမည်
-                reply_text = "✨ **ရှာတွေ့သော ရေမွေးများ:**\n\n"
-                for s in matched_summary:
-                    reply_text += f"🌸 {s}\n"
-                reply_text += f"\n🛒 မှာယူလိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပါ။\n🌐 ရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
+        products_text = "\n".join(matched_summary[:10]) if matched_summary else "ရေမွေးအမျိုးအစားများကို Website တွင် ကြည့်ရှုနိုင်ပါသည်။"
+        
+        ai_prompt = (
+            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော ရေမွေးဆိုင် အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ "
+            "Customer က ရေမွေးအကြောင်း၊ အနံ့အသက် သို့မဟုတ် အချက်အလက်များကို မေးမြန်းထားသည်။ "
+            "အောက်ပါဆိုင်ရှိ ရေမွေးအချက်အလက်များကို အခြေခံ၍ Customer ၏ မေးခွန်းကို မြန်မာဘာသာဖြင့် ဖော်ရွေကျွမ်းကျင်စွာ ရှင်းပြပါ။ "
+            f"ရေမွေးအကုန်ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ကြည့်နိုင်ကြောင်း ထည့်ပြောပါ။ "
+            "Markdown syntax (*, _, etc.) ကို လုံးဝမသုံးပါနဲ့။\n\n"
+            f"ဆိုင်တွင်ရှိသော ရေမွေးအချက်အလက်များ:\n{products_text}\n\n"
+            f"Customer ၏ မေးခွန်း: {user_text}"
+        )
+        
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
+        
+        response = requests.post(gemini_url, json=payload, timeout=20)
+        res_data = response.json()
+        
+        if response.status_code == 200 and "candidates" in res_data:
+            reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
         else:
-            # Sheet ထဲ လုံးဝမတွေ့ပါက Website သို့ ညွှန်းပေးမည်
-            reply_text = (
-                f"မင်္ဂလာပါရှင့်! 🙏 ' {user_text} ' နှင့် ပတ်သက်၍ စာရင်းထဲတွင် တိုက်ရိုက် မတွေ့ရှိရသေးပါ။\n\n"
-                f"🌐 ရေမွေးအကုန်လုံးကို အသေးစိတ်ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
-                f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
-            )
+            # AI ဘက်က Error တက်ပါက ဘာ Error လဲဆိုတာ အတိအကျပြမည်
+            reply_text = f"Gemini Error ({response.status_code}): {str(res_data)}"
             
     except Exception as e:
-        reply_text = (
-            f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance မှ ကြိုဆိုပါတယ်။\n"
-            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
-            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
-        )
+        reply_text = f"Exception Error: {str(e)}"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
