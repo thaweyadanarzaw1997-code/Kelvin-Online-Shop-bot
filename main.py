@@ -12,13 +12,14 @@ app = FastAPI()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
+# Odoo Website Link
 WEBSITE_LINK = "https://fragrance-by-kelvin.odoo.com/"
 
 PRODUCTS_CACHE = []
 LAST_FETCH_TIME = 0
 CACHE_DURATION = 3600
 
-# User ၏ Order Form အဆင့်များကို မှတ်ထားရန်
+# Order Form စကားပြော အဆင့်များ မှတ်ထားရန် Cache
 USER_STATES = {}
 
 def get_google_sheet_data():
@@ -82,14 +83,14 @@ async def webhook(update: TelegramUpdate):
     chat_id = update.message["chat"]["id"]
     state = USER_STATES.get(chat_id, {})
     
-    # ဓာတ်ပုံ (Payment Slip) ပို့လာသည့်အခါ စစ်ဆေးခြင်း
+    # ဓာတ်ပုံ (Payment Slip Screenshot) ပို့လာပါက အလိုအလျောက် Sheet ထဲ သိမ်းမည်
     if "photo" in update.message:
         if state.get("step") == "WAITING_SLIP":
             photo = update.message["photo"][-1]
             file_id = photo["file_id"]
             state["slip_file_id"] = file_id
             
-            # Google Sheet သို့ Order တိုက်ရိုက် သိမ်းမည်
+            # Google Sheet သို့ Order စာရင်း သိမ်းဆည်းခြင်း
             success = save_order_to_sheet(state)
             if success:
                 reply_msg = (
@@ -102,7 +103,7 @@ async def webhook(update: TelegramUpdate):
                     "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်။"
                 )
             else:
-                reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ လူကြီးမင်း၏ Order ကို Admin ထံသို့ တိုက်ရိုက် ပေးပို့ပေးပါမည်။"
+                reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ Admin ထံ တိုက်ရိုက် အကြောင်းကြားပေးပါမည်။"
                 
             USER_STATES[chat_id] = {}
             send_telegram_message(chat_id, reply_msg)
@@ -118,15 +119,15 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(
             chat_id, 
             f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
-            f"လိုချင်သော ရေမွေးနံ့ သို့မဟုတ် အမျိုးအစားများကို မေးမြန်းနိုင်ပါတယ်။ "
-            f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
+            f"လိုချင်သော ရေမွေးနံ့ သို့မဟုတ် အမျိုးအစားများကို မေးမြန်းနိုင်ပါတယ်။\n"
+            f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ လင့်ခ်မှာ ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"🔗 {WEBSITE_LINK}"
         )
         return {"status": "ok"}
 
     current_step = state.get("step")
 
-    # Order တင်လိုကြောင်း စတင်ပြောလာခြင်း
+    # Order တင်သည့် Flow စတင်ခြင်း
     if user_text.lower() in ["order", "မှာမည်", "ဝယ်မည်", "order တင်မည်"] and not current_step:
         USER_STATES[chat_id] = {"step": "WAITING_PRODUCT"}
         send_telegram_message(chat_id, "🛒 **Order တင်ရန်**\n\nမှာယူလိုသည့် ရေမွေးအမည်နှင့် ပမာဏ (ဥပမာ- Sauvage 10ml) ကို ရေးပေးပါနော်။")
@@ -172,17 +173,18 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက **ငွေလွှဲ Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # AI စကားပြောခြင်း (Customer မေးသည့် ရေမွေးကိုသာ စာရင်းထဲမှ ရှာဖွေပြသမည်)
+    # AI စကားပြောခြင်း (Customer မေးသည့် ရေမွေးကိုသာ သီးသန့် ရွေးချယ်ပြသမည်)
     try:
         products = load_products_cached()
+        summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:40]]
         
         system_content = (
             "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ "
             "စည်းမျဉ်းများ -\n"
-            "1. စာရင်းထဲရှိ ရေမွေးအားလုံးကို တစ်ပြိုင်နက် အကုန်မပြပါနှင့်။ Customer မေးမြန်းသည့် ရနံ့ သို့မဟုတ် ရေမွေးအမည်နှင့် ကိုက်ညီသည်များကိုသာ ရွေးချယ်၍ ဈေးနှုန်းနှင့်တကွ မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ညွှန်းဆိုပါ။\n"
-            f"2. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ကြောင်း အမြဲထည့်သွင်းပြောပြပါ။\n"
-            "3. Customer က ဝယ်ယူလိုကြောင်း ပြောပါက 'Order' ဟု ရိုက်ပို့ခိုင်းပါ။\n"
-            "ရေမွေးစာရင်း: " + json.dumps(products[:40], ensure_ascii=False)
+            "1. စာရင်းထဲရှိ ရေမွေးအားလုံးကို တစ်ပြိုင်နက် အကုန်မပြပါနှင့်။ Customer မေးမြန်းသည့် ရနံ့ သို့မဟုတ် ရေမွေးအမည်နှင့် ကိုက်ညီသည်များကိုသာ ရွေးချယ်၍ ဈေးနှုန်းနှင့်တကွ မြန်မာဘာသာဖြင့် သဒ္ဒါမှန်ကန်စွာ ဖော်ရွေစွာ ညွှန်းဆိုပါ။\n"
+            f"2. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ကြောင်း ပြောပြပါ။\n"
+            "3. Customer က ဝယ်ယူလိုကြောင်း ပြောပါက 'Order တင်မည်' ဟု ရိုက်ပို့ခိုင်းပါ။\n"
+            "ရေမွေးစာရင်း: " + json.dumps(summary_products, ensure_ascii=False)
         )
         
         headers = {
@@ -192,9 +194,9 @@ async def webhook(update: TelegramUpdate):
             "X-Title": "Kelvin Perfume Bot"
         }
         
-        # OpenRouter ၏ အသစ်ဆုံး Free Llama 3.3 Model သို့ ပြောင်းထားသည်
+        # OpenRouter တွင် လက်ရှိ ၁၀၀% Free ဖြစ်သော Stable Model
         payload = {
-            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "model": "meta-llama/llama-3.1-8b-instruct:free",
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
