@@ -10,7 +10,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 app = FastAPI()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Odoo Website Link
 WEBSITE_LINK = "https://fragrance-by-kelvin.odoo.com/"
@@ -173,47 +173,35 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက **ငွေလွှဲ Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # AI စကားပြောခြင်း (OpenRouter Free Model: deepseek/deepseek-r1:free)
+    # Google Gemini API ဖြင့် စကားပြောခြင်း
     try:
         products = load_products_cached()
         summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:50]]
         
-        system_content = (
-            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ "
+        prompt = (
+            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။\n"
             "စည်းမျဉ်းများ -\n"
             "1. စာရင်းထဲရှိ ရေမွေးအားလုံးကို တစ်ပြိုင်နက် အကုန်မပြပါနှင့်။ Customer မေးမြန်းသည့် ရနံ့ သို့မဟုတ် ရေမွေးအမည်နှင့် ကိုက်ညီသည်များကိုသာ ရွေးချယ်၍ ဈေးနှုန်းနှင့်တကွ မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ညွှန်းဆိုပါ။\n"
             f"2. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ကြောင်း ပြောပြပါ။\n"
-            "3. Customer က ဝယ်ယူလိုကြောင်း ပြောပါက 'Order တင်မည်' ဟု ရိုက်ပို့ခိုင်းပါ။\n"
-            "ရေမွေးစာရင်း: " + json.dumps(summary_products, ensure_ascii=False)
+            "3. Customer က ဝယ်ယူလိုကြောင်း ပြောပါက 'Order တင်မည်' ဟု ရိုက်ပို့ခိုင်းပါ။\n\n"
+            f"ရေမွေးစာရင်း: {json.dumps(summary_products, ensure_ascii=False)}\n\n"
+            f"Customer ၏ မေးခွန်း: {user_text}"
         )
         
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com",
-            "X-Title": "Kelvin Perfume Bot"
-        }
-        
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         payload = {
-            "model": "deepseek/deepseek-r1:free",
-            "messages": [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_text}
-            ],
-            "temperature": 0.5,
-            "max_tokens": 512
+            "contents": [
+                {
+                    "parts": [{"text": prompt}]
+                }
+            ]
         }
         
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=25
-        )
-        
+        response = requests.post(gemini_url, json=payload, timeout=25)
         res_data = response.json()
-        if response.status_code == 200 and "choices" in res_data:
-            reply_text = res_data["choices"][0]["message"]["content"]
+        
+        if response.status_code == 200 and "candidates" in res_data:
+            reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
         else:
             reply_text = (
                 f"မင်္ဂလာပါရှင့်! 🙏 လိုချင်တဲ့ ရနံ့လေးတွေကို မေးမြန်းနိုင်ပါတယ်။ "
