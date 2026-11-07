@@ -11,6 +11,7 @@ app = FastAPI()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+ADMIN_CHANNEL_ID = os.getenv("ADMIN_CHANNEL_ID", "")  # Order ဝင်မည့် Admin Channel/Group ID
 
 # Odoo Website Link
 WEBSITE_LINK = "https://fragrance-by-kelvin.odoo.com/"
@@ -41,7 +42,7 @@ def load_products_cached():
         sheet = get_google_sheet_data()
         worksheet = sheet.worksheet("Sheet1")
         data = worksheet.get_all_records()
-        PRODUCTS_CACHE = data  # Data အကုန်လုံးကို ယူပါသည်
+        PRODUCTS_CACHE = data
         LAST_FETCH_TIME = time.time()
         return PRODUCTS_CACHE
     except Exception as e:
@@ -52,9 +53,9 @@ def save_order_to_sheet(order_data):
     try:
         sheet = get_google_sheet_data()
         try:
-            worksheet = sheet.worksheet("Orders")
+            worksheet = sheet.worksheet("Sheet4")
         except:
-            worksheet = sheet.worksheet("Sheet2")
+            worksheet = sheet.add_worksheet(title="Sheet4", rows="100", cols="10")
             
         row = [
             order_data.get("name", ""),
@@ -83,7 +84,7 @@ async def webhook(update: TelegramUpdate):
     chat_id = update.message["chat"]["id"]
     state = USER_STATES.get(chat_id, {})
     
-    # ဓာတ်ပုံ (Payment Slip Screenshot) ပို့လာပါက အလိုအလျောက် Sheet ထဲ သိမ်းမည်
+    # ဓာတ်ပုံ (Payment Slip Screenshot) ပို့လာပါက အလိုအလျောက် Sheet4 ထဲသိမ်းမည် + Admin Channel သို့ ပို့မည်
     if "photo" in update.message:
         if state.get("step") == "WAITING_SLIP":
             photo = update.message["photo"][-1]
@@ -101,6 +102,19 @@ async def webhook(update: TelegramUpdate):
                     f"💳 Payment: {state.get('payment')}\n\n"
                     "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်။"
                 )
+                
+                # Admin Channel သို့ Order အချက်အလက်နှင့် ဓာတ်ပုံ ပို့ခြင်း
+                if ADMIN_CHANNEL_ID:
+                    admin_caption = (
+                        "🚨 **New Order Received! (Sheet4)**\n\n"
+                        f"👤 အမည်: {state.get('name')}\n"
+                        f"📞 ဖုန်း: {state.get('phone')}\n"
+                        f"📍 လိပ်စာ: {state.get('address')}\n"
+                        f"🌸 ရေမွေး: {state.get('product')}\n"
+                        f"💳 Payment: {state.get('payment')}\n"
+                        f"💬 Telegram Chat ID: {chat_id}"
+                    )
+                    send_telegram_photo(ADMIN_CHANNEL_ID, file_id, admin_caption)
             else:
                 reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ Admin ထံ တိုက်ရိုက် အကြောင်းကြားပေးပါမည်။"
                 
@@ -121,7 +135,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(
             chat_id, 
             f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
-            f"🔍 လိုချင်သော ရေမွေးအကြောင်း၊ အနံ့အသက် သို့မဟုတ် အမျိုးအစားများကို မေးမြန်းနိုင်ပါတယ်။\n"
+            f"🔍 လိုချင်သော ရေမွေးအမည် သို့မဟုတ် အနံ့အသက်ကို မေးမြန်းနိုင်ပါတယ်။\n"
             f"🌐 ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"{WEBSITE_LINK}\n\n"
             f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
@@ -176,21 +190,31 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက ငွေလွှဲ **Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # OpenRouter DeepSeek AI မေးမြန်းခြင်း စနစ်
+    # နှုတ်ဆက်စာများ သို့မဟုတ် ရေမွေးနှင့် မသက်ဆိုင်သော စကားပြောဆိုမှုများအတွက် AI မခေါ်ဘဲ သပ်သပ်ရပ်ရပ် ဖြေမည်
+    text_lower = user_text.lower()
+    greetings = ["hi", "hello", "ဟိုင်", "ဟယ်လို", "မင်္ဂလာပါ", "နေကောင်းလား", "ဟေး", "hey"]
+    if any(g in text_lower for g in greetings) and len(text_lower.split()) <= 3:
+        send_telegram_message(
+            chat_id,
+            f"မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
+            f"သိလိုသည့် ရေမွေးအမည်ကို မေးမြန်းနိုင်ပါတယ်။ ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ကြည့်နိုင်ပါတယ်။\n\n"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
+        )
+        return {"status": "ok"}
+
+    # OpenRouter DeepSeek AI (Customer က ရေမွေးအကြောင်း သို့မဟုတ် အနံ့အသက် တိတိကျကျ မေးမှသာ အလုပ်လုပ်မည်)
     try:
         products = load_products_cached()
-        text_lower = user_text.lower()
         keywords = text_lower.split()
         
-        # 3ml, 5ml, 10ml, 30ml ဈေးနှုန်းများ အကုန်လုံး ပါဝင်သော Summary
         matched_products = []
         for p in products:
             prod_name = str(p.get("Product Name") or p.get("Name") or "").lower()
             if prod_name and any(kw in prod_name for kw in keywords):
                 matched_products.append(p)
                 
-        # သက်ဆိုင်သော ရေမွေး တွေ့ပါက ၎င်းတို့ကို ဦးစားပေးမည်၊ မဟုတ်ပါက ပထမဆုံး အစုံ ၃၀ ကို ယူမည်
-        selected_products = matched_products if matched_products else products[:30]
+        # Customer မေးမြန်းသည့် ရေမွေးကို တွေ့မှသာ ၎င်းအချက်အလက်ကို ပို့မည်၊ မတွေ့ပါက ပထမဆုံး အစုံကို ပို့မည်
+        selected_products = matched_products if matched_products else products[:20]
         
         summary_products = [
             {
@@ -206,12 +230,12 @@ async def webhook(update: TelegramUpdate):
 
         system_content = (
             "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေကျွမ်းကျင်သော ရေမွေးအရောင်းကိုယ်စားလှယ် ဖြစ်သည်။ "
-            "အောက်ပါ ရေမွေးစာရင်းများကို အခြေခံ၍ Customer များကို မြန်မာဘာသာဖြင့် ဖြေကြားပေးပါ။ "
+            "Customer ၏ မေးခွန်းကို အခြေခံ၍ အောက်ပါ ရေမွေးစာရင်းထဲမှ သက်ဆိုင်ရာ အချက်အလက်များကို မြန်မာဘာသာဖြင့် တိကျဖော်ရွေစွာ ဖြေကြားပါ။ "
             "စည်းမျဉ်းများ- "
-            "1. မြန်မာစာ သတ်ပုံ၊ သဒ္ဒါ နှင့် သာမန်ပြောစကားများကို အလွန်သန့်ရှင်းမှန်ကန်စွာ ရေးသားပါ။ "
-            "2. ဈေးနှုန်း (5ml, 10ml, 30ml) နှင့် ရေမွေးအမည်များကို ရှင်းလင်းပြတ်သားစွာ ဖော်ပြပါ။ "
-            f"3. ရေမွေးအကုန်လုံးကို အသေးစိတ်ကြည့်ချင်ပါက Website ဖြစ်သော {WEBSITE_LINK} တွင် ကြည့်နိုင်ကြောင်း ပြောပြပါ။ "
-            "4. ဝယ်ယူလိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ရန် ညွှန်းဆိုပေးပါ။\n\n"
+            "1. မြန်မာစာ သတ်ပုံ၊ သဒ္ဒါ မှန်ကန်စေရန် ရေးသားပါ။ "
+            "2. ဈေးနှုန်းများ (5ml, 10ml, 30ml) နှင့် ရေမွေးအမည်များကို ရှင်းလင်းစွာ ဖော်ပြပါ။ "
+            f"3. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက Website ({WEBSITE_LINK}) တွင် ကြည့်နိုင်ကြောင်း ညွှန်းဆိုပါ။ "
+            "4. ဝယ်ယူလိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ရန် ပြောပြပါ။\n\n"
             "ရေမွေးစာရင်း: " + json.dumps(summary_products, ensure_ascii=False)
         )
         
@@ -229,7 +253,7 @@ async def webhook(update: TelegramUpdate):
                 {"role": "user", "content": user_text}
             ],
             "temperature": 0.5,
-            "max_tokens": 600
+            "max_tokens": 500
         }
         
         response = requests.post(
@@ -243,19 +267,28 @@ async def webhook(update: TelegramUpdate):
         if response.status_code == 200 and "choices" in res_data:
             reply_text = res_data["choices"][0]["message"]["content"]
         else:
-            reply_text = f"⚠️ API Error ({response.status_code}): {str(res_data)}"
+            reply_text = f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။ Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါ။"
             
     except Exception as e:
-        reply_text = f"⚠️ Server Error: {str(e)}"
+        reply_text = f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။ Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါ။"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
 
-def send_telegram_message(chat_id: int, text: str):
+def send_telegram_message(chat_id: [int, str], text: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": text
+    }
+    requests.post(url, json=payload)
+
+def send_telegram_photo(chat_id: [int, str], photo_file_id: str, caption: str):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    payload = {
+        "chat_id": chat_id,
+        "photo": photo_file_id,
+        "caption": caption
     }
     requests.post(url, json=payload)
 
