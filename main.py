@@ -99,7 +99,7 @@ async def webhook(update: TelegramUpdate):
                     f"📍 လိပ်စာ: {state.get('address')}\n"
                     f"🌸 ရေမွေး: {state.get('product')}\n"
                     f"💳 Payment: {state.get('payment')}\n\n"
-                    "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်။"
+                    "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်。"
                 )
             else:
                 reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ Admin ထံ တိုက်ရိုက် အကြောင်းကြားပေးပါမည်။"
@@ -173,7 +173,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက **ငွေလွှဲ Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # Google Gemini API ဖြင့် စကားပြောခြင်း
+    # Google Gemini API ဖြင့် စကားပြောခြင်း (Debug Error Included)
     try:
         products = load_products_cached()
         summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:50]]
@@ -203,18 +203,11 @@ async def webhook(update: TelegramUpdate):
         if response.status_code == 200 and "candidates" in res_data:
             reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
         else:
-            reply_text = (
-                f"မင်္ဂလာပါရှင့်! 🙏 လိုချင်တဲ့ ရနံ့လေးတွေကို မေးမြန်းနိုင်ပါတယ်။ "
-                f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} မှာ ဝင်ကြည့်နိုင်ပါတယ်ရှင့်။ "
-                f"Order တင်ချင်ရင် 'Order တင်မည်' လို့ ရိုက်ပို့ပေးပါနော်။"
-            )
+            # တကယ်တမ်း ဘာ Error တက်နေလဲ သိရအောင် ပုံစံထုတ်ပေးမည်
+            reply_text = f"⚠️ Gemini Error ({response.status_code}): {str(res_data)}"
             
     except Exception as e:
-        reply_text = (
-            f"မင်္ဂလာပါရှင့်! 🙏 လိုချင်တဲ့ ရနံ့လေးတွေကို မေးမြန်းနိုင်ပါတယ်။ "
-            f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} မှာ ဝင်ကြည့်နိုင်ပါတယ်ရှင့်။ "
-            f"Order တင်ချင်ရင် 'Order တင်မည်' လို့ ရိုက်ပို့ပေးပါနော်။"
-        )
+        reply_text = f"⚠️ Exception Error: {str(e)}"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
