@@ -142,14 +142,14 @@ async def webhook(update: TelegramUpdate):
         state["name"] = user_text
         state["step"] = "WAITING_PHONE"
         USER_STATES[chat_id] = state
-        send_telegram_message(chat_id, "ဆက်သွယ်ရန် ဖုန်းနံပါတ် ကို ရေးပေးပါနော်።")
+        send_telegram_message(chat_id, "ဆက်သွယ်ရန် ဖုန်းနံပါတ် ကို ရေးပေးပါနော်။")
         return {"status": "ok"}
 
     elif current_step == "WAITING_PHONE":
         state["phone"] = user_text
         state["step"] = "WAITING_ADDRESS"
         USER_STATES[chat_id] = state
-        send_telegram_message(chat_id, "ပို့ဆောင်ပေးရမည့် နေရပ်လိပ်စာ ကို ရေးပေးပါနော်።")
+        send_telegram_message(chat_id, "ပို့ဆောင်ပေးရမည့် နေရပ်လိပ်စာ ကို ရေးပေးပါနော်။")
         return {"status": "ok"}
 
     elif current_step == "WAITING_ADDRESS":
@@ -173,7 +173,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "ငွေလွှဲပြီးပါက ငွေလွှဲ Screenshot (Slip) ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # Google Gemini API ဖြင့် စကားပြောခြင်း (Updated Model: gemini-2.5-flash)
+    # Google Gemini API ဖြင့် စကားပြောခြင်း (Updated Model: gemini-3.8-flash)
     try:
         products = load_products_cached()
         summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:50]]
@@ -189,8 +189,8 @@ async def webhook(update: TelegramUpdate):
             f"Customer ၏ မေးခွန်း: {user_text}"
         )
         
-        # မော်ဒယ်အသစ် `gemini-2.5-flash` ကို သုံးထားပါသည်
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+        # Google ထံမှ ညွှန်ကြားထားသော gemini-3.8-flash မော်ဒယ်ကို အသုံးပြုထားပါသည်
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
         payload = {
             "contents": [
                 {
