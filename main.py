@@ -10,6 +10,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 app = FastAPI()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Odoo Website Link
 WEBSITE_LINK = "https://fragrance-by-kelvin.odoo.com/"
@@ -117,7 +118,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(
             chat_id, 
             f"မင်္ဂလာပါရှင်! Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
-            f"လိုချင်သော ရေမွေးအမည်ကို ရိုက်ထည့်ပြီး ရှာဖွေနိုင်ပါတယ်။\n"
+            f"လိုချင်သော ရေမွေးအမည်ကို ရိုက်ထည့်ပြီး ရှာဖွေနိုင်ပါတယ်ရှင့်။\n"
             f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"{WEBSITE_LINK}\n\n"
             f"Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါနော်။"
@@ -172,35 +173,66 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "ငွေလွှဲပြီးပါက ငွေလွှဲ Screenshot (Slip) ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # Google Sheet မှ ရေမွေးအမည်အလျောက် တိုက်ရိုက်ရှာဖွေပေးခြင်း (Timeout လုံးဝမဖြစ်ပါ)
+    # ၁။ ပထမဦးစွာ Google Sheet ထဲတွင် ရေမွေးအမည် တိုက်ဆိုင်မှု ရှိမရှိ စစ်ဆေးမည်
     try:
         products = load_products_cached()
         query = user_text.lower()
         
-        # ကိုက်ညီသော ရေမွေးများကို ရှာမည်
         matched_products = []
         for p in products:
-            prod_name = str(p.get("Product Name", "")).lower()
-            if query in prod_name or prod_name in query:
+            prod_name = str(p.get("Product Name") or p.get("Name") or p.get("product") or "").lower()
+            if prod_name and (query in prod_name or prod_name in query):
                 matched_products.append(p)
                 
         if matched_products:
             reply_text = "ရှာတွေ့သော ရေမွေးများ:\n\n"
-            for p in matched_products[:5]: # အများဆုံး ၅ ခု ပြမည်
-                name = p.get("Product Name", "Unknown")
-                price_5 = p.get("5ml Price", "-")
-                price_10 = p.get("10ml Price", "-")
+            for p in matched_products[:5]:
+                name = p.get("Product Name") or p.get("Name") or p.get("product") or "Unknown"
+                price_5 = p.get("5ml Price") or p.get("5ml") or "-"
+                price_10 = p.get("10ml Price") or p.get("10ml") or "-"
                 reply_text += f"🌸 {name}\n   - 5ml: {price_5}\n   - 10ml: {price_10}\n\n"
             reply_text += f"မှာယူလိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပါ။\nရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
-        else:
-            reply_text = (
-                f"ရှာမတွေ့ပါရှင့်။ 🔍\n"
-                f"ရေမွေးအကုန်လုံးကို အသေးစိတ်ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n\n"
-                f"Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါနော်။"
-            )
+            
+            send_telegram_message(chat_id, reply_text)
+            return {"status": "ok"}
             
     except Exception as e:
-        reply_text = f"ရေမွေးစာရင်း ရှာဖွေရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။\nရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
+        print(f"Sheet Search Error: {e}")
+
+    # ၂။ ရေမွေးစာရင်းထဲ မတွေ့ပါက (သို့မဟုတ် အထွေထွေစကားပြောဆိုမှု ဖြစ်ပါက) Gemini AI သို့ ပို့၍ ဖော်ရွေစွာ ဖြေခိုင်းမည်
+    try:
+        ai_prompt = (
+            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော ရေမွေးဆိုင် ကိုယ်စားလှယ် ဖြစ်သည်။ "
+            "Customer က အထွေထွေ မေးခွန်းမေးခြင်း (သို့မဟုတ်) နှုတ်ဆက်ခြင်း ဖြစ်သည်။ "
+            "ဖော်ရွေစွာ မြန်မာဘာသာဖြင့် တုံ့ပြန်ပါ။ ရေမွေးအကုန်ကြည့်ချင်ပါက "
+            f"{WEBSITE_LINK} တွင် ကြည့်နိုင်ကြောင်း ထည့်ပြောပါ။ Markdown ကို အသုံးမပြုပါနဲ့။\n\n"
+            f"Customer ပြောသည်မှာ: {user_text}"
+        )
+        
+        gemini_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
+        payload = {
+            "contents": [
+                {
+                    "parts": [{"text": ai_prompt}]
+                }
+            ]
+        }
+        
+        response = requests.post(gemini_url, json=payload, timeout=20)
+        res_data = response.json()
+        
+        if response.status_code == 200 and "candidates" in res_data:
+            reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        else:
+            reply_text = (
+                f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n"
+                f"ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။"
+            )
+    except Exception as e:
+        reply_text = (
+            f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n"
+            f"ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။"
+        )
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
