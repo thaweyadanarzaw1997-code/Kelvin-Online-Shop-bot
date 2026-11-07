@@ -99,7 +99,7 @@ async def webhook(update: TelegramUpdate):
                     f"📍 လိပ်စာ: {state.get('address')}\n"
                     f"🌸 ရေမွေး: {state.get('product')}\n"
                     f"💳 Payment: {state.get('payment')}\n\n"
-                    "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်。"
+                    "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်။"
                 )
             else:
                 reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ Admin ထံ တိုက်ရိုက် အကြောင်းကြားပေးပါမည်။"
@@ -121,7 +121,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(
             chat_id, 
             f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
-            f"🔍 လိုချင်သော ရေမွေးအမည် သို့မဟုတ် အနံ့အသက် (ဥပမာ - ချွေးနံ့အတွက်, hawas) ကို မေးမြန်းနိုင်ပါတယ်။\n"
+            f"🔍 လိုချင်သော ရေမွေးအကြောင်း၊ အနံ့အသက် သို့မဟုတ် အမျိုးအစားများကို AI ဖြင့် မေးမြန်းနိုင်ပါတယ်။\n"
             f"🌐 ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"{WEBSITE_LINK}\n\n"
             f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
@@ -145,14 +145,14 @@ async def webhook(update: TelegramUpdate):
         state["name"] = user_text
         state["step"] = "WAITING_PHONE"
         USER_STATES[chat_id] = state
-        send_telegram_message(chat_id, "📞 ဆက်သွယ်ရန် **ဖုန်းနံပါတ်** ကို ရေးပေးပါနော်။")
+        send_telegram_message(chat_id, "📞 ဆက်သွယ်ရန် **ဖုန်းနံပါတ်** ကို ရေးပေးပါနော်።")
         return {"status": "ok"}
 
     elif current_step == "WAITING_PHONE":
         state["phone"] = user_text
         state["step"] = "WAITING_ADDRESS"
         USER_STATES[chat_id] = state
-        send_telegram_message(chat_id, "📍 ပို့ဆောင်ပေးရမည့် နေရပ်လိပ်စာ ကို ရေးပေးပါနော်။")
+        send_telegram_message(chat_id, "📍 ပို့ဆောင်ပေးရမည့် နေရပ်လိပ်စာ ကို ရေးပေးပါနော်።")
         return {"status": "ok"}
 
     elif current_step == "WAITING_ADDRESS":
@@ -176,76 +176,47 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက ငွေလွှဲ **Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    text_lower = user_text.lower()
-    
-    # ချွေးနံ့နှင့် ပတ်သက်သော မေးခွန်းများအတွက် အထူးအကြံပြုချက် ချက်ချင်းထုတ်ပေးမည်
-    if any(w in text_lower for w in ["ချွေးနံ့", "ချွေး", "အနံ့စွဲ", "အနံ့ဆိုး"]):
-        reply_text = (
-            "🌿 **ချွေးနံ့အတွက် အသင့်တော်ဆုံး ရေမွေးအမျိုးအစားများ**\n\n"
-            "ချွေးနံ့ရှိသူများအတွက် ရေမွေးရွေးချယ်တဲ့အခါ ကျွမ်းကျင်သူတွေ ညွှန်ကြားချက်အရ -\n"
-            "1️⃣ **Citrus ရနံ့များ** (သံပုရာ၊ လိမ္မော်၊ ဘာဂါမော့ ပါဝင်သော ရနံ့များက လန်းဆန်းစေပြီး အနံ့ဆိုးကို ဖုံးအုပ်ပေးနိုင်ပါတယ်)\n"
-            "2️⃣ **Aquatic / Marine ရနံ့များ** (ရေပြင်လို လန်းဆန်းပြီး သန့်ရှင်းတဲ့ ခံစားမှုကို ပေးစွမ်းပါတယ်)\n"
-            "3️⃣ **Woody / Clean Musk ရနံ့များ** (အနံ့စွဲမြဲပြီး သန့်စင်တဲ့ပုံစံ ပေါ်လွင်စေပါတယ်)\n\n"
-            f"🛒 ကျွန်တော်တို့ဆိုင်မှာရှိတဲ့ ရေမွေးအမျိုးအစားများကို 👉 {WEBSITE_LINK} မှာ ဝင်ရောက်ကြည့်ရှုပြီး လိုချင်တာကို **'Order တင်မည်'** လို့ ရိုက်ပြီး မှာယူနိုင်ပါတယ်ရှင့်!"
-        )
-        send_telegram_message(chat_id, reply_text)
-        return {"status": "ok"}
-
-    if any(word in text_lower for word in ["hi", "hello", "ဟိုင်", "ဟယ်လို", "မင်္ဂလာပါ", "hey"]):
-        reply_text = (
-            f"မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
-            f"🔍 သိလိုသည့် ရေမွေးအမည် သို့မဟုတ် အနံ့အသက် (ဥပမာ - ချွေးနံ့အတွက်၊ hawas) ကို မေးမြန်းနိုင်ပါတယ်ရှင့်။\n"
-            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} ကို ဝင်ကြည့်နိုင်ပါတယ်။\n\n"
-            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
-        )
-        send_telegram_message(chat_id, reply_text)
-        return {"status": "ok"}
-
-    # Gemini AI ဖြင့် အခြားမေးခွန်းများကို ဖြေကြားခြင်း (Multi-Model Fallback ပါဝင်သည်)
+    # -------------------------------------------------------------
+    # SMART AI HYBRID SYSTEM (Timeout လုံးဝမဖြစ်အောင် Filter လုပ်ပြီးမှ AI သို့ ပို့မည်)
+    # -------------------------------------------------------------
     try:
         products = load_products_cached()
         matched_summary = []
+        text_lower = user_text.lower()
         keywords = text_lower.split()
         
+        # Google Sheet ထဲက Customer မေးတဲ့ စကားလုံးနဲ့ ကိုက်ညီတဲ့ ရေမွေးတွေကိုပဲ ယူမယ်
         for p in products:
             prod_name = str(p.get("Product Name") or p.get("Name") or p.get("product") or "").lower()
             if prod_name and any(kw in prod_name for kw in keywords):
                 name = p.get("Product Name") or p.get("Name") or p.get("product") or "Unknown"
                 p5 = p.get("5ml Price") or p.get("5ml") or "-"
                 p10 = p.get("10ml Price") or p.get("10ml") or "-"
-                matched_summary.append(f"- {name} (5ml: {p5}, 10ml: {p10})")
+                matched_summary.append(f"- ရေမွေးအမည်: {name} | 5ml ဈေး: {p5} | 10ml ဈေး: {p10}")
                 
-        products_text = "\n".join(matched_summary[:10]) if matched_summary else "ရေမွေးအမျိုးအစားများကို Website တွင် ကြည့်ရှုနိုင်ပါသည်။"
+        products_text = "\n".join(matched_summary[:12]) if matched_summary else "ဆိုင်တွင် ရေမွေးအမျိုးမျိုး ရရှိနိုင်ပါသည်။"
         
         ai_prompt = (
-            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော ရေမွေးဆိုင် အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ "
-            "Customer က ရေမွေးအကြောင်း၊ အနံ့အသက် သို့မဟုတ် အချက်အလက်များကို မေးမြန်းထားသည်။ "
+            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော ရေမွေးဆိုင် အရောင်းကျွမ်းကျင်သူ AI ဖြစ်သည်။ "
+            "Customer က ရေမွေးအကြောင်း၊ အနံ့အသက် သို့မဟုတ် ရွေးချယ်စရာများကို မေးမြန်းထားသည်။ "
             "အောက်ပါဆိုင်ရှိ ရေမွေးအချက်အလက်များကို အခြေခံ၍ Customer ၏ မေးခွန်းကို မြန်မာဘာသာဖြင့် ဖော်ရွေကျွမ်းကျင်စွာ ရှင်းပြပါ။ "
             f"ရေမွေးအကုန်ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ကြည့်နိုင်ကြောင်း ထည့်ပြောပါ။ "
-            "Markdown syntax (*, _, etc.) ကို လုံးဝမသုံးပါနဲ့။\n\n"
-            f"ဆိုင်တွင်ရှိသော ရေမွေးအချက်အလက်များ:\n{products_text}\n\n"
+            "Markdown formatting (*, _, etc.) ကို လုံးဝမသုံးပါနဲ့။\n\n"
+            f"ဆိုင်တွင်ရှိသော သက်ဆိုင်ရာ ရေမွေးအချက်အလက်များ:\n{products_text}\n\n"
             f"Customer ၏ မေးခွန်း: {user_text}"
         )
         
-        success_ai = False
-        reply_text = ""
+        # Gemini AI ကို ခေါ်ယူခြင်း (v1beta endpoint & gemini-1.5-flash)
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
         
-        # မော်ဒယ်အမျိုးမျိုးဖြင့် စမ်းသပ်ချိတ်ဆက်ခြင်း (gemini-2.0-flash နှင့် gemini-1.5-flash)
-        for model in ["gemini-2.0-flash", "gemini-1.5-flash"]:
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-            payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
-            try:
-                response = requests.post(gemini_url, json=payload, timeout=15)
-                if response.status_code == 200:
-                    res_data = response.json()
-                    if "candidates" in res_data:
-                        reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
-                        success_ai = True
-                        break
-            except:
-                continue
-                
-        if not success_ai:
+        response = requests.post(gemini_url, json=payload, timeout=20)
+        res_data = response.json()
+        
+        if response.status_code == 200 and "candidates" in res_data:
+            reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        else:
+            # AI ဘက်က တစ်ခုခု Error တက်ရင်တောင် Sheet ထဲက တွေ့ထားတာတွေကို တိုက်ရိုက်ထုတ်ပြပေးမယ်
             if matched_summary:
                 reply_text = "✨ **ရှာတွေ့သော ရေမွေးများ:**\n\n"
                 for s in matched_summary:
@@ -253,23 +224,17 @@ async def webhook(update: TelegramUpdate):
                 reply_text += f"\n🛒 မှာယူလိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပါ။\n🌐 ရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
             else:
                 reply_text = (
-                    f"မင်္ဂလာပါရှင့်! 🙏\n"
+                    f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n"
                     f"🌐 ရေမွေးအကုန်လုံးကို အသေးစိတ်ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
                     f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
                 )
             
     except Exception as e:
-        if matched_summary:
-            reply_text = "✨ **ရှာတွေ့သော ရေမွေးများ:**\n\n"
-            for s in matched_summary:
-                reply_text += f"🌸 {s}\n"
-            reply_text += f"\n🛒 မှာယူလိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပါ။\n🌐 ရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
-        else:
-            reply_text = (
-                f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance မှ ကြိုဆိုပါတယ်။\n"
-                f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
-                f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
-            )
+        reply_text = (
+            f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance မှ ကြိုဆိုပါတယ်။\n"
+            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
+        )
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
