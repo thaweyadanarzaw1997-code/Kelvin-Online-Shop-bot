@@ -10,7 +10,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 app = FastAPI()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Odoo Website Link
 WEBSITE_LINK = "https://fragrance-by-kelvin.odoo.com/"
@@ -118,7 +117,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(
             chat_id, 
             f"မင်္ဂလာပါရှင်! Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
-            f"လိုချင်သော ရေမွေးနံ့ သို့မဟုတ် အမျိုးအစားများကို မေးမြန်းနိုင်ပါတယ်။\n"
+            f"လိုချင်သော ရေမွေးအမည်ကို ရိုက်ထည့်ပြီး ရှာဖွေနိုင်ပါတယ်။\n"
             f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"{WEBSITE_LINK}\n\n"
             f"Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါနော်။"
@@ -173,42 +172,35 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "ငွေလွှဲပြီးပါက ငွေလွှဲ Screenshot (Slip) ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # Google Gemini API ဖြင့် စကားပြောခြင်း (v1 & gemini-3.8-flash)
+    # Google Sheet မှ ရေမွေးအမည်အလျောက် တိုက်ရိုက်ရှာဖွေပေးခြင်း (Timeout လုံးဝမဖြစ်ပါ)
     try:
         products = load_products_cached()
-        summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:50]]
+        query = user_text.lower()
         
-        prompt = (
-            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။\n"
-            "စည်းမျဉ်းများ -\n"
-            "1. စာရင်းထဲရှိ ရေမွေးအားလုံးကို တစ်ပြိုင်နက် အကုန်မပြပါနှင့်။ Customer မေးမြန်းသည့် ရနံ့ သို့မဟုတ် ရေမွေးအမည်နှင့် ကိုက်ညီသည်များကိုသာ ရွေးချယ်၍ ဈေးနှုန်းနှင့်တကွ မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ညွှန်းဆိုပါ။\n"
-            f"2. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ကြောင်း ပြောပြပါ။\n"
-            "3. Customer က ဝယ်ယူလိုကြောင်း ပြောပါက 'Order တင်မည်' ဟု ရိုက်ပို့ခိုင်းပါ။\n"
-            "4. စာသားများတွင် Markdown syntax (*, _, etc.) ကို အသုံးမပြုဘဲ သာမန်စာသားအတိုင်းသာ ရေးပါ။\n\n"
-            f"ရေမွေးစာရင်း: {json.dumps(summary_products, ensure_ascii=False)}\n\n"
-            f"Customer ၏ မေးခွန်း: {user_text}"
-        )
-        
-        # Google AI Studio ၏ တရားဝင်ညွှန်ကြားချက်အတိုင်း gemini-3.8-flash ကို v1 ဖြင့် ချိတ်ဆက်ထားပါသည်
-        gemini_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
-        payload = {
-            "contents": [
-                {
-                    "parts": [{"text": prompt}]
-                }
-            ]
-        }
-        
-        response = requests.post(gemini_url, json=payload, timeout=25)
-        res_data = response.json()
-        
-        if response.status_code == 200 and "candidates" in res_data:
-            reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        # ကိုက်ညီသော ရေမွေးများကို ရှာမည်
+        matched_products = []
+        for p in products:
+            prod_name = str(p.get("Product Name", "")).lower()
+            if query in prod_name or prod_name in query:
+                matched_products.append(p)
+                
+        if matched_products:
+            reply_text = "ရှာတွေ့သော ရေမွေးများ:\n\n"
+            for p in matched_products[:5]: # အများဆုံး ၅ ခု ပြမည်
+                name = p.get("Product Name", "Unknown")
+                price_5 = p.get("5ml Price", "-")
+                price_10 = p.get("10ml Price", "-")
+                reply_text += f"🌸 {name}\n   - 5ml: {price_5}\n   - 10ml: {price_10}\n\n"
+            reply_text += f"မှာယူလိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပါ။\nရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
         else:
-            reply_text = f"Gemini Error ({response.status_code}): {str(res_data)}"
+            reply_text = (
+                f"ရှာမတွေ့ပါရှင့်။ 🔍\n"
+                f"ရေမွေးအကုန်လုံးကို အသေးစိတ်ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n\n"
+                f"Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါနော်။"
+            )
             
     except Exception as e:
-        reply_text = f"Exception Error: {str(e)}"
+        reply_text = f"ရေမွေးစာရင်း ရှာဖွေရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။\nရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
