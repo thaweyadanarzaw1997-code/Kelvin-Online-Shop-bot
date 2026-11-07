@@ -12,9 +12,15 @@ app = FastAPI()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
+# Website Link
+WEBSITE_LINK = "https://fragrance-by-kelvin.odoo.com/"
+
 PRODUCTS_CACHE = []
 LAST_FETCH_TIME = 0
 CACHE_DURATION = 3600
+
+# User ၏ စကားပြော State များကို မှတ်ထားရန် Cache (Order Form အဆင့်များအတွက်)
+USER_STATES = {}
 
 def get_google_sheet_data():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -35,12 +41,35 @@ def load_products_cached():
         sheet = get_google_sheet_data()
         worksheet = sheet.worksheet("Sheet1")
         data = worksheet.get_all_records()
-        PRODUCTS_CACHE = data[:30]
+        PRODUCTS_CACHE = data
         LAST_FETCH_TIME = time.time()
         return PRODUCTS_CACHE
     except Exception as e:
         print(f"Sheet Error: {e}")
         return PRODUCTS_CACHE
+
+def save_order_to_sheet(order_data):
+    try:
+        sheet = get_google_sheet_data()
+        try:
+            worksheet = sheet.worksheet("Orders")
+        except:
+            worksheet = sheet.worksheet("Sheet2")
+            
+        row = [
+            order_data.get("name", ""),
+            order_data.get("phone", ""),
+            order_data.get("address", ""),
+            order_data.get("product", ""),
+            order_data.get("payment", ""),
+            order_data.get("slip_file_id", ""),
+            time.strftime("%Y-%m-%d %H:%M:%S")
+        ]
+        worksheet.append_row(row)
+        return True
+    except Exception as e:
+        print(f"Error saving order: {e}")
+        return False
 
 class TelegramUpdate(BaseModel):
     update_id: int
@@ -48,31 +77,112 @@ class TelegramUpdate(BaseModel):
 
 @app.post("/")
 async def webhook(update: TelegramUpdate):
-    if not update.message or "text" not in update.message:
+    if not update.message:
         return {"status": "ok"}
     
     chat_id = update.message["chat"]["id"]
-    user_text = update.message["text"]
+    state = USER_STATES.get(chat_id, {})
     
+    # ဓာတ်ပုံ (Payment Slip) ပို့လာသည့်အခါ စစ်ဆေးခြင်း
+    if "photo" in update.message:
+        if state.get("step") == "WAITING_SLIP":
+            photo = update.message["photo"][-1]
+            file_id = photo["file_id"]
+            state["slip_file_id"] = file_id
+            
+            # Sheet ထဲသို့ Order စာရင်းသိမ်းခြင်း
+            success = save_order_to_sheet(state)
+            if success:
+                reply_msg = (
+                    "🎉 **Order အောင်မြင်စွာ တင်ပြီးပါပြီရှင့်!**\n\n"
+                    f"👤 အမည်: {state.get('name')}\n"
+                    f"📞 ဖုန်း: {state.get('phone')}\n"
+                    f"📍 လိပ်စာ: {state.get('address')}\n"
+                    f"🌸 ရေမွေး: {state.get('product')}\n"
+                    f"💳 Payment: {state.get('payment')}\n\n"
+                    "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ စာပို့၍ အကြောင်းပြန်ပေးပါမည်ရှင့်။"
+                )
+            else:
+                reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ လူကြီးမင်း၏ Order ကို Admin သို့ တိုက်ရိုက် ပေးပို့ပေးပါမည်။"
+                
+            USER_STATES[chat_id] = {}
+            send_telegram_message(chat_id, reply_msg)
+            return {"status": "ok"}
+
+    user_text = update.message.get("text", "").strip()
+    if not user_text:
+        return {"status": "ok"}
+
+    # Start Command
     if user_text == "/start":
+        USER_STATES[chat_id] = {}
         send_telegram_message(
             chat_id, 
-            "မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\nဘယ်လိုရနံ့မျိုးကို နှစ်သက်လဲ၊ ဘယ်လိုနေရာတွေမှာ သုံးမလဲ ပြောပြပေးပါနော်။"
+            f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
+            f"စိတ်ကြိုက် ရေမွေးနံ့များကို မေးမြန်းနိုင်သလို ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ လင့်ခ်မှာ ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
+            f"🔗 {WEBSITE_LINK}"
         )
         return {"status": "ok"}
 
+    # Order တင်သည့် Process လမ်းကြောင်း (Interactive Order Form Flow)
+    current_step = state.get("step")
+
+    if user_text.lower() in ["order", "မှာမည်", "ဝယ်မည်", "order တင်မည်"] and not current_step:
+        USER_STATES[chat_id] = {"step": "WAITING_PRODUCT"}
+        send_telegram_message(chat_id, "🛒 **Order တင်ရန်**\n\nလိုချင်သည့် ရေမွေးအမည်နှင့် ပမာဏ (ဥပမာ- Sauvage 10ml) ကို ရေးပေးပါနော်။")
+        return {"status": "ok"}
+
+    if current_step == "WAITING_PRODUCT":
+        USER_STATES[chat_id] = {"step": "WAITING_NAME", "product": user_text}
+        send_telegram_message(chat_id, "📝 မှာယူသူ၏ **အမည်** ကို ရေးပေးပါနော်။")
+        return {"status": "ok"}
+
+    elif current_step == "WAITING_NAME":
+        state["name"] = user_text
+        state["step"] = "WAITING_PHONE"
+        USER_STATES[chat_id] = state
+        send_telegram_message(chat_id, "📞 ဆက်သွယ်ရန် **ဖုန်းနံပါတ်** လေး ပေးပို့ပေးပါနော်။")
+        return {"status": "ok"}
+
+    elif current_step == "WAITING_PHONE":
+        state["phone"] = user_text
+        state["step"] = "WAITING_ADDRESS"
+        USER_STATES[chat_id] = state
+        send_telegram_message(chat_id, "📍 ပို့ဆောင်ပေးရမည့် **နေရပ်လိပ်စာ** ကို ပို့ပေးပါနော်။")
+        return {"status": "ok"}
+
+    elif current_step == "WAITING_ADDRESS":
+        state["address"] = user_text
+        state["step"] = "WAITING_PAYMENT"
+        USER_STATES[chat_id] = state
+        
+        reply_payment = (
+            "💳 **Payment Type ရွေးချယ်ပါ**\n\n"
+            "1️⃣ KBZ Pay\n"
+            "2️⃣ Wave Pay\n\n"
+            "ငွေလွှဲလိုသည့် အမျိုးအစားကို ရိုက်ပို့ပေးပါနော်။"
+        )
+        send_telegram_message(chat_id, reply_payment)
+        return {"status": "ok"}
+
+    elif current_step == "WAITING_PAYMENT":
+        state["payment"] = user_text
+        state["step"] = "WAITING_SLIP"
+        USER_STATES[chat_id] = state
+        send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက **ငွေလွှဲ Screenshot (Payment Slip)** ကို ဓာတ်ပုံ ပို့ပေးပါနော်။")
+        return {"status": "ok"}
+
+    # AI စကားပြောခြင်း (Customer မေးသည့် ရေမွေးကိုသာ သီးသန့် ရှာဖွေပြသမည်)
     try:
         products = load_products_cached()
-        summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products]
         
-        # မြန်မာစာ သဒ္ဒါမှန်ကန်စေရန် တင်းကျပ်သော System Prompt
         system_content = (
-            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေကျွမ်းကျင်သော ရေမွေးအရောင်းကိုယ်စားလှယ် ဖြစ်သည်။ "
-            "အောက်ပါ ရေမွေးစာရင်းများကို အခြေခံ၍ Customer များကို မြန်မာဘာသာဖြင့် ဖြေကြားပေးပါ။ "
-            "စည်းမျဉ်းများ- "
-            "1. မြန်မာစာ သတ်ပုံ၊ သဒ္ဒါ နှင့် သာမန်ပြောစကားများကို အလွန်သန့်ရှင်းမှန်ကန်စွာ ရေးသားပါ။ စာလုံးထပ်ခြင်း၊ ရေးထုံးမှားယွင်းခြင်း လုံးဝ မရှိစေရပါ။ "
-            "2. ဈေးနှုန်းနှင့် ရေမွေးအမည်များကို ရှင်းလင်းပြတ်သားစွာ ဖော်ပြပါ။ "
-            "ရေမွေးစာရင်း: " + json.dumps(summary_products, ensure_ascii=False)
+            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော AI ရေမွေး အရောင်းကျွမ်းကျင်သူ ဖြစ်သည်။ "
+            "စည်းမျဉ်းများ -\n"
+            "1. Customer မေးမြန်းသည့် သို့မဟုတ် နှစ်သက်သည့် ရနံ့/ရေမွေး အမျိုးအစားကိုသာ စာရင်းထဲမှ ရွေးထုတ်၍ ဈေးနှုန်းနှင့်အတူ မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ ညွှန်းဆိုပါ။ စာရင်းတစ်ခုလုံးကို အကုန် မပြပါနှင့်။\n"
+            f"2. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ကြောင်း အသိပေးပါ။\n"
+            "3. Customer က ဝယ်ယူလိုကြောင်း ပြောပါက 'Order တင်မည်' ဟု ရိုက်ပို့ခိုင်းပါ။\n"
+            "ရေမွေးစာရင်း: " + json.dumps(products[:40], ensure_ascii=False)
         )
         
         headers = {
@@ -82,9 +192,8 @@ async def webhook(update: TelegramUpdate):
             "X-Title": "Kelvin Perfume Bot"
         }
         
-        # မြန်မာဘာသာ သဘာဝကျကျနှင့် ပိုမိုကောင်းမွန်သော Free Model သို့ ပြောင်းထားသည်
         payload = {
-            "model": "deepseek/deepseek-chat",
+            "model": "google/gemma-2-9b-it:free",
             "messages": [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
@@ -104,7 +213,7 @@ async def webhook(update: TelegramUpdate):
         if response.status_code == 200 and "choices" in res_data:
             reply_text = res_data["choices"][0]["message"]["content"]
         else:
-            reply_text = f"⚠️ API Error ({response.status_code}): {str(res_data)}"
+            reply_text = f"⚠️ OpenRouter Error ({response.status_code}): {str(res_data)}"
             
     except Exception as e:
         reply_text = f"⚠️ Server Error: {str(e)}"
