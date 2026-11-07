@@ -135,7 +135,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(
             chat_id, 
             f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
-            f"🔍 လိုချင်သော ရေမွေးအမည် သို့မဟုတ် အနံ့အသက်ကို မေးမြန်းနိုင်ပါတယ်။\n"
+            f"🔍 လိုချင်သော ရေမွေးအကြောင်း၊ အနံ့အသက် သို့မဟုတ် အမျိုးအစားများကို မေးမြန်းနိုင်ပါတယ်။\n"
             f"🌐 ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"{WEBSITE_LINK}\n\n"
             f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
@@ -190,21 +190,10 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက ငွေလွှဲ **Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # နှုတ်ဆက်စာများ သို့မဟုတ် ရေမွေးနှင့် မသက်ဆိုင်သော စကားပြောဆိုမှုများအတွက် AI မခေါ်ဘဲ သပ်သပ်ရပ်ရပ် ဖြေမည်
-    text_lower = user_text.lower()
-    greetings = ["hi", "hello", "ဟိုင်", "ဟယ်လို", "မင်္ဂလာပါ", "နေကောင်းလား", "ဟေး", "hey"]
-    if any(g in text_lower for g in greetings) and len(text_lower.split()) <= 3:
-        send_telegram_message(
-            chat_id,
-            f"မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
-            f"သိလိုသည့် ရေမွေးအမည်ကို မေးမြန်းနိုင်ပါတယ်။ ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ကြည့်နိုင်ပါတယ်။\n\n"
-            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
-        )
-        return {"status": "ok"}
-
-    # OpenRouter DeepSeek AI (Customer က ရေမွေးအကြောင်း သို့မဟုတ် အနံ့အသက် တိတိကျကျ မေးမှသာ အလုပ်လုပ်မည်)
+    # OpenRouter DeepSeek AI ဖြင့် အားလုံးကို တုံ့ပြန်ရန် (နှုတ်ဆက်ခြင်း၊ မေးမြန်းခြင်း အားလုံးပါဝင်သည်)
     try:
         products = load_products_cached()
+        text_lower = user_text.lower()
         keywords = text_lower.split()
         
         matched_products = []
@@ -213,7 +202,7 @@ async def webhook(update: TelegramUpdate):
             if prod_name and any(kw in prod_name for kw in keywords):
                 matched_products.append(p)
                 
-        # Customer မေးမြန်းသည့် ရေမွေးကို တွေ့မှသာ ၎င်းအချက်အလက်ကို ပို့မည်၊ မတွေ့ပါက ပထမဆုံး အစုံကို ပို့မည်
+        # သက်ဆိုင်ရာ ရေမွေး တွေ့ပါက ၎င်းတို့ကို ပို့မည်၊ မဟုတ်ပါက ပထမဆုံး အစုံ ၂၀ ကို ပို့မည်
         selected_products = matched_products if matched_products else products[:20]
         
         summary_products = [
@@ -230,12 +219,14 @@ async def webhook(update: TelegramUpdate):
 
         system_content = (
             "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေကျွမ်းကျင်သော ရေမွေးအရောင်းကိုယ်စားလှယ် ဖြစ်သည်။ "
-            "Customer ၏ မေးခွန်းကို အခြေခံ၍ အောက်ပါ ရေမွေးစာရင်းထဲမှ သက်ဆိုင်ရာ အချက်အလက်များကို မြန်မာဘာသာဖြင့် တိကျဖော်ရွေစွာ ဖြေကြားပါ။ "
+            "Customer က နှုတ်ဆက်ခြင်း (ဥပမာ - နေကောင်းလား၊ မင်္ဂလာပါ) သို့မဟုတ် ရေမွေးအကြောင်း မေးမြန်းခြင်းများကို ပြုလုပ်နေသည်။ "
+            "အောက်ပါ ရေမွေးစာရင်းများနှင့် ဆိုင်၏အချက်အလက်များကို အခြေခံ၍ မြန်မာဘာသာဖြင့် ဖော်ရွေစွာ တုံ့ပြန်ပါ။ "
             "စည်းမျဉ်းများ- "
             "1. မြန်မာစာ သတ်ပုံ၊ သဒ္ဒါ မှန်ကန်စေရန် ရေးသားပါ။ "
-            "2. ဈေးနှုန်းများ (5ml, 10ml, 30ml) နှင့် ရေမွေးအမည်များကို ရှင်းလင်းစွာ ဖော်ပြပါ။ "
-            f"3. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက Website ({WEBSITE_LINK}) တွင် ကြည့်နိုင်ကြောင်း ညွှန်းဆိုပါ။ "
-            "4. ဝယ်ယူလိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ရန် ပြောပြပါ။\n\n"
+            "2. နှုတ်ဆက်လာပါက ဖော်ရွေစွာ နှုတ်ဆက်ပြီး ရေမွေးအကြောင်း သို့မဟုတ် လိုချင်သည့်အနံ့ကို မေးမြန်းပါ။ "
+            "3. ဈေးနှုန်းများ (5ml, 10ml, 30ml) နှင့် ရေမွေးအမည်များကို ရှင်းလင်းစွာ ဖော်ပြပါ။ "
+            f"4. ရေမွေးအကုန်လုံးကို ကြည့်ချင်ပါက Website ({WEBSITE_LINK}) တွင် ကြည့်နိုင်ကြောင်း ညွှန်းဆိုပါ။ "
+            "5. ဝယ်ယူလိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ရန် ပြောပြပါ။\n\n"
             "ရေမွေးစာရင်း: " + json.dumps(summary_products, ensure_ascii=False)
         )
         
@@ -267,10 +258,10 @@ async def webhook(update: TelegramUpdate):
         if response.status_code == 200 and "choices" in res_data:
             reply_text = res_data["choices"][0]["message"]["content"]
         else:
-            reply_text = f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။ Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါ။"
+            reply_text = f"မင်္ဂလာပါရှင့်! 🙏 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ကြည့်နိုင်ပါတယ်။ Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါ။"
             
     except Exception as e:
-        reply_text = f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။ Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါ။"
+        reply_text = f"မင်္ဂလာပါရှင့်! 🙏 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ကြည့်နိုင်ပါတယ်။ Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါ။"
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
