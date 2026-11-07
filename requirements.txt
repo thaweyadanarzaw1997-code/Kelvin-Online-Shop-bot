@@ -1,7 +1,6 @@
 fastapi
 uvicorn
+pydantic
 requests
 gspread
 oauth2client
-pydantic
-pandas
