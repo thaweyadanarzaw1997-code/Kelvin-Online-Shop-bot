@@ -10,7 +10,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 app = FastAPI()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Odoo Website Link
 WEBSITE_LINK = "https://fragrance-by-kelvin.odoo.com/"
@@ -93,19 +92,22 @@ async def webhook(update: TelegramUpdate):
             success = save_order_to_sheet(state)
             if success:
                 reply_msg = (
-                    "Order အောင်မြင်စွာ တင်ပြီးပါပြီရှင့်!\n\n"
-                    f"အမည်: {state.get('name')}\n"
-                    f"ဖုန်း: {state.get('phone')}\n"
-                    f"လိပ်စာ: {state.get('address')}\n"
-                    f"ရေမွေး: {state.get('product')}\n"
-                    f"Payment: {state.get('payment')}\n\n"
+                    "🎉 Order အောင်မြင်စွာ တင်ပြီးပါပြီရှင့်!\n\n"
+                    f"👤 အမည်: {state.get('name')}\n"
+                    f"📞 ဖုန်း: {state.get('phone')}\n"
+                    f"📍 လိပ်စာ: {state.get('address')}\n"
+                    f"🌸 ရေမွေး: {state.get('product')}\n"
+                    f"💳 Payment: {state.get('payment')}\n\n"
                     "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်။"
                 )
             else:
-                reply_msg = "Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ Admin ထံ တိုက်ရိုက် အကြောင်းကြားပေးပါမည်။"
+                reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ Admin ထံ တိုက်ရိုက် အကြောင်းကြားပေးပါမည်။"
                 
             USER_STATES[chat_id] = {}
             send_telegram_message(chat_id, reply_msg)
+            return {"status": "ok"}
+        else:
+            send_telegram_message(chat_id, "📸 ကျေးဇူးပြု၍ Order တင်စဉ် ငွေလွှဲစလစ် (Slip) ပုံကိုသာ ပို့ပေးပါနော်။")
             return {"status": "ok"}
 
     user_text = update.message.get("text", "").strip()
@@ -117,39 +119,39 @@ async def webhook(update: TelegramUpdate):
         USER_STATES[chat_id] = {}
         send_telegram_message(
             chat_id, 
-            f"မင်္ဂလာပါရှင်! Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
-            f"လိုချင်သော ရေမွေးအမည်ကို ရိုက်ထည့်ပြီး ရှာဖွေနိုင်ပါတယ်ရှင့်။\n"
-            f"ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
+            f"မင်္ဂလာပါရှင်! 🙏 **Kelvin Fragrance Online Shop** မှ ကြိုဆိုပါတယ်။\n\n"
+            f"🔍 လိုချင်သော ရေမွေးအမည်ကို ရိုက်ထည့်ပြီး ရှာဖွေနိုင်ပါတယ်ရှင့်။ (ဥပမာ - hawas, sauvage)\n"
+            f"🌐 ရေမွေးအကုန်လုံးကို ကြည့်ရှုလိုပါက အောက်ပါ Website တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
             f"{WEBSITE_LINK}\n\n"
-            f"Order တင်လိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပေးပါနော်။"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
         )
         return {"status": "ok"}
 
     current_step = state.get("step")
 
     # Order တင်သည့် Flow စတင်ခြင်း
-    if user_text.lower() in ["order", "မှာမည်", "ဝယ်မည်", "order တင်မည်"] and not current_step:
+    if user_text.lower() in ["order", "မှာမည်", "ဝယ်မည်", "order တင်မည်", "ဝယ်ချင်တယ်", "မှာချင်တယ်"] and not current_step:
         USER_STATES[chat_id] = {"step": "WAITING_PRODUCT"}
-        send_telegram_message(chat_id, "Order တင်ရန်\n\nမှာယူလိုသည့် ရေမွေးအမည်နှင့် ပမာဏ (ဥပမာ- Sauvage 10ml) ကို ရေးပေးပါနော်။")
+        send_telegram_message(chat_id, "🛒 **Order တင်ရန်**\n\nမှာယူလိုသည့် ရေမွေးအမည်နှင့် ပမာဏ (ဥပမာ- Sauvage 10ml) ကို ရေးပေးပါနော်။")
         return {"status": "ok"}
 
     if current_step == "WAITING_PRODUCT":
         USER_STATES[chat_id] = {"step": "WAITING_NAME", "product": user_text}
-        send_telegram_message(chat_id, "မှာယူသူ၏ အမည် ကို ရေးပေးပါနော်။")
+        send_telegram_message(chat_id, "📝 မှာယူသူ၏ **အမည်** ကို ရေးပေးပါနော်။")
         return {"status": "ok"}
 
     elif current_step == "WAITING_NAME":
         state["name"] = user_text
         state["step"] = "WAITING_PHONE"
         USER_STATES[chat_id] = state
-        send_telegram_message(chat_id, "ဆက်သွယ်ရန် ဖုန်းနံပါတ် ကို ရေးပေးပါနော်။")
+        send_telegram_message(chat_id, "📞 ဆက်သွယ်ရန် **ဖုန်းနံပါတ်** ကို ရေးပေးပါနော်။")
         return {"status": "ok"}
 
     elif current_step == "WAITING_PHONE":
         state["phone"] = user_text
         state["step"] = "WAITING_ADDRESS"
         USER_STATES[chat_id] = state
-        send_telegram_message(chat_id, "ပို့ဆောင်ပေးရမည့် နေရပ်လိပ်စာ ကို ရေးပေးပါနော်။")
+        send_telegram_message(chat_id, "📍 ပို့ဆောင်ပေးရမည့် **နေရပ်လိပ်စာ** ကို ရေးပေးပါနော်။")
         return {"status": "ok"}
 
     elif current_step == "WAITING_ADDRESS":
@@ -158,9 +160,9 @@ async def webhook(update: TelegramUpdate):
         USER_STATES[chat_id] = state
         
         reply_payment = (
-            "Payment Type ရွေးချယ်ပါ\n\n"
-            "1. KBZ Pay\n"
-            "2. Wave Pay\n\n"
+            "💳 **Payment Type ရွေးချယ်ပါ**\n\n"
+            "1️⃣ KBZ Pay\n"
+            "2️⃣ Wave Pay\n\n"
             "ငွေလွှဲမည့် Payment အမျိုးအစားကို ရိုက်ပို့ပေးပါနော်။"
         )
         send_telegram_message(chat_id, reply_payment)
@@ -170,68 +172,62 @@ async def webhook(update: TelegramUpdate):
         state["payment"] = user_text
         state["step"] = "WAITING_SLIP"
         USER_STATES[chat_id] = state
-        send_telegram_message(chat_id, "ငွေလွှဲပြီးပါက ငွေလွှဲ Screenshot (Slip) ဓာတ်ပုံကို ပို့ပေးပါနော်။")
+        send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက ငွေလွှဲ **Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # ၁။ ပထမဦးစွာ Google Sheet ထဲတွင် ရေမွေးအမည် တိုက်ဆိုင်မှု ရှိမရှိ စစ်ဆေးမည်
+    # နှုတ်ဆက်ခြင်းနှင့် အထွေထွေစကားပြောဆိုမှုများကို စနစ်တကျ တုံ့ပြန်ရန်
+    text_lower = user_text.lower()
+    
+    if any(word in text_lower for word in ["hi", "hello", "ဟိုင်", "ဟယ်လို", "မင်္ဂလာပါ", "민갈라바", "hey", "စကားပြော"]):
+        reply_text = (
+            f"မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
+            f"🔍 ရှာဖွေလိုသည့် ရေမွေးအမည်ကို ရိုက်ထည့်ပြီး မေးမြန်းနိုင်ပါတယ်ရှင့်။\n"
+            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} ကို ဝင်ကြည့်နိုင်ပါတယ်။\n\n"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
+        )
+        send_telegram_message(chat_id, reply_text)
+        return {"status": "ok"}
+
+    if any(word in text_lower for word in ["website", "web", "လင့်", "link", "ကြည့်မယ်", "အစုံ", "page", "website လင့်"]):
+        reply_text = (
+            f"🌐 **Kelvin Fragrance Website**\n\n"
+            f"ရေမွေးအမျိုးအစားစုံလင်စွာကို အောက်ပါလင့်ခ်တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့် -\n"
+            f"{WEBSITE_LINK}\n\n"
+            f"အသေးစိတ် သိလိုပါက သို့မဟုတ် Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့နိုင်ပါတယ်။"
+        )
+        send_telegram_message(chat_id, reply_text)
+        return {"status": "ok"}
+
+    # Google Sheet ထဲတွင် ရေမွေးအမည် တိုက်ဆိုင်မှု ရှိမရှိ ရှာဖွေခြင်း
     try:
         products = load_products_cached()
-        query = user_text.lower()
-        
         matched_products = []
         for p in products:
             prod_name = str(p.get("Product Name") or p.get("Name") or p.get("product") or "").lower()
-            if prod_name and (query in prod_name or prod_name in query):
+            if prod_name and (text_lower in prod_name or prod_name in text_lower):
                 matched_products.append(p)
                 
         if matched_products:
-            reply_text = "ရှာတွေ့သော ရေမွေးများ:\n\n"
+            reply_text = "✨ **ရှာတွေ့သော ရေမွေးများ:**\n\n"
             for p in matched_products[:5]:
                 name = p.get("Product Name") or p.get("Name") or p.get("product") or "Unknown"
                 price_5 = p.get("5ml Price") or p.get("5ml") or "-"
                 price_10 = p.get("10ml Price") or p.get("10ml") or "-"
-                reply_text += f"🌸 {name}\n   - 5ml: {price_5}\n   - 10ml: {price_10}\n\n"
-            reply_text += f"မှာယူလိုပါက 'Order တင်မည်' ဟု ရိုက်ပို့ပါ။\nရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
-            
-            send_telegram_message(chat_id, reply_text)
-            return {"status": "ok"}
-            
-    except Exception as e:
-        print(f"Sheet Search Error: {e}")
-
-    # ၂။ ရေမွေးစာရင်းထဲ မတွေ့ပါက (သို့မဟုတ် အထွေထွေစကားပြောဆိုမှု ဖြစ်ပါက) Gemini AI သို့ ပို့၍ ဖော်ရွေစွာ ဖြေခိုင်းမည်
-    try:
-        ai_prompt = (
-            "သင်သည် Kelvin Fragrance Online Shop ၏ ဖော်ရွေသော ရေမွေးဆိုင် ကိုယ်စားလှယ် ဖြစ်သည်။ "
-            "Customer က အထွေထွေ မေးခွန်းမေးခြင်း (သို့မဟုတ်) နှုတ်ဆက်ခြင်း ဖြစ်သည်။ "
-            "ဖော်ရွေစွာ မြန်မာဘာသာဖြင့် တုံ့ပြန်ပါ။ ရေမွေးအကုန်ကြည့်ချင်ပါက "
-            f"{WEBSITE_LINK} တွင် ကြည့်နိုင်ကြောင်း ထည့်ပြောပါ။ Markdown ကို အသုံးမပြုပါနဲ့။\n\n"
-            f"Customer ပြောသည်မှာ: {user_text}"
-        )
-        
-        gemini_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
-        payload = {
-            "contents": [
-                {
-                    "parts": [{"text": ai_prompt}]
-                }
-            ]
-        }
-        
-        response = requests.post(gemini_url, json=payload, timeout=20)
-        res_data = response.json()
-        
-        if response.status_code == 200 and "candidates" in res_data:
-            reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+                reply_text += f"🌸 **{name}**\n   - 5ml ဈေးနှုန်း: {price_5}\n   - 10ml ဈေးနှုန်း: {price_10}\n\n"
+            reply_text += f"🛒 မှာယူလိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါ။\n🌐 ရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
         else:
+            # ဘာမှန်းမသိတာပြောရင်တောင် ဖော်ရွေစွာ လမ်းညွှန်ပေးမည့် Fallback အဖြေ
             reply_text = (
-                f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n"
-                f"ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။"
+                f"မင်္ဂလာပါရှင့်! 🙏 ' {user_text} ' ဆိုသော ရေမွေးကို စာရင်းထဲတွင် ရှာမတွေ့ပါ။\n\n"
+                f"🌐 ရေမွေးအကုန်လုံးကို အသေးစိတ်ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
+                f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
             )
+            
     except Exception as e:
         reply_text = (
-            f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n"
-            f"ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။"
+            f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance မှ ကြိုဆိုပါတယ်။\n"
+            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
         )
 
     send_telegram_message(chat_id, reply_text)
