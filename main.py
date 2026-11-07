@@ -173,7 +173,7 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "ငွေလွှဲပြီးပါက ငွေလွှဲ Screenshot (Slip) ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # Google Gemini API ဖြင့် စကားပြောခြင်း (Stable v1 endpoint & gemini-1.5-flash)
+    # Google Gemini API ဖြင့် စကားပြောခြင်း (v1 & gemini-3.8-flash)
     try:
         products = load_products_cached()
         summary_products = [{"name": p.get("Product Name"), "price_5ml": p.get("5ml Price"), "price_10ml": p.get("10ml Price")} for p in products[:50]]
@@ -189,8 +189,8 @@ async def webhook(update: TelegramUpdate):
             f"Customer ၏ မေးခွန်း: {user_text}"
         )
         
-        # v1 endpoint နှင့် gemini-1.5-flash ကို အသုံးပြုထားပါသည် (Stable & Production Ready)
-        gemini_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        # Google AI Studio ၏ တရားဝင်ညွှန်ကြားချက်အတိုင်း gemini-3.8-flash ကို v1 ဖြင့် ချိတ်ဆက်ထားပါသည်
+        gemini_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
         payload = {
             "contents": [
                 {
