@@ -99,7 +99,7 @@ async def webhook(update: TelegramUpdate):
                     f"📍 လိပ်စာ: {state.get('address')}\n"
                     f"🌸 ရေမွေး: {state.get('product')}\n"
                     f"💳 Payment: {state.get('payment')}\n\n"
-                    "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်。"
+                    "ကျေးဇူးအထူးတင်ရှိပါတယ်။ Kelvin Fragrance မှ မကြာမီ ဆက်သွယ်ပေးပါမည်ရှင့်။"
                 )
             else:
                 reply_msg = "⚠️ Order သိမ်းဆည်းရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။ Admin ထံ တိုက်ရိုက် အကြောင်းကြားပေးပါမည်။"
@@ -176,11 +176,22 @@ async def webhook(update: TelegramUpdate):
         send_telegram_message(chat_id, "📸 ငွေလွှဲပြီးပါက ငွေလွှဲ **Screenshot (Slip)** ဓာတ်ပုံကို ပို့ပေးပါနော်။")
         return {"status": "ok"}
 
-    # Gemini AI ဖြင့် Customer ၏ မေးခွန်းများကို ဖြေကြားခြင်း (Sheet Data Filter ပါဝင်သည်)
+    # နှုတ်ဆက်ခြင်း သို့မဟုတ် အထွေထွေစကားပြောများ
+    text_lower = user_text.lower()
+    if any(word in text_lower for word in ["hi", "hello", "ဟိုင်", "ဟယ်လို", "မင်္ဂလာပါ", "hey"]):
+        reply_text = (
+            f"မင်္ဂလာပါရှင်! 🙏 Kelvin Fragrance Online Shop မှ ကြိုဆိုပါတယ်။\n\n"
+            f"🔍 သိလိုသည့် ရေမွေးအမည် သို့မဟုတ် အနံ့အသက်ကို မေးမြန်းနိုင်ပါတယ်ရှင့်။\n"
+            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} ကို ဝင်ကြည့်နိုင်ပါတယ်။\n\n"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
+        )
+        send_telegram_message(chat_id, reply_text)
+        return {"status": "ok"}
+
+    # Google Sheet ထဲမှ ဒေတာများကို စစ်ထုတ်ပြီး Gemini AI သို့ ပို့၍ ဖြေခိုင်းခြင်း
     try:
         products = load_products_cached()
         matched_summary = []
-        text_lower = user_text.lower()
         keywords = text_lower.split()
         
         for p in products:
@@ -203,7 +214,8 @@ async def webhook(update: TelegramUpdate):
             f"Customer ၏ မေးခွန်း: {user_text}"
         )
         
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        # gemini-3.8-flash မော်ဒယ်ကို အသုံးပြုထားပါသည်
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
         payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
         
         response = requests.post(gemini_url, json=payload, timeout=20)
@@ -212,11 +224,25 @@ async def webhook(update: TelegramUpdate):
         if response.status_code == 200 and "candidates" in res_data:
             reply_text = res_data["candidates"][0]["content"]["parts"][0]["text"]
         else:
-            # AI ဘက်က Error တက်ပါက ဘာ Error လဲဆိုတာ အတိအကျပြမည်
-            reply_text = f"Gemini Error ({response.status_code}): {str(res_data)}"
+            # AI ဘက်က နှောင့်နှေးခြင်း သို့မဟုတ် Error ရှိပါက Sheet ထဲက တွေ့ထားတာတွေကို တိုက်ရိုက်ထုတ်ပြပေးမည် (Fallback)
+            if matched_summary:
+                reply_text = "✨ **ရှာတွေ့သော ရေမွေးများ:**\n\n"
+                for s in matched_summary:
+                    reply_text += f"🌸 {s}\n"
+                reply_text += f"\n🛒 မှာယူလိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပါ။\n🌐 ရေမွေးအစုံကြည့်ရန် 👉 {WEBSITE_LINK}"
+            else:
+                reply_text = (
+                    f"မင်္ဂလာပါရှင့်! 🙏\n"
+                    f"🌐 ရေမွေးအကုန်လုံးကို အသေးစိတ်ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
+                    f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
+                )
             
     except Exception as e:
-        reply_text = f"Exception Error: {str(e)}"
+        reply_text = (
+            f"မင်္ဂလာပါရှင့်! 🙏 Kelvin Fragrance မှ ကြိုဆိုပါတယ်။\n"
+            f"🌐 ရေမွေးအစုံကို ကြည့်ရှုလိုပါက 👉 {WEBSITE_LINK} တွင် ဝင်ရောက်ကြည့်ရှုနိုင်ပါတယ်ရှင့်။\n"
+            f"🛒 Order တင်လိုပါက **'Order တင်မည်'** ဟု ရိုက်ပို့ပေးပါနော်။"
+        )
 
     send_telegram_message(chat_id, reply_text)
     return {"status": "ok"}
